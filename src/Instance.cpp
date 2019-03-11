@@ -24,8 +24,9 @@ namespace RenderGraph
  * @param textures
  * @param mapTextures
  */
-Instance::Instance(const std::vector<Instruction> & instructions, const std::vector<Pass*> & passes, const std::vector<Framebuffer*> & framebuffers, const std::vector<Texture*> & textures, const std::map<std::string, Texture*> & mapTextures)
-	: m_aTextures(textures),
+Instance::Instance(const std::vector<Instruction> & instructions, const std::vector<Pass*> & passes, const std::vector<Framebuffer*> & framebuffers, const std::vector<Texture*> & textures, const std::vector<Value> & values, const std::map<std::string, unsigned int> & mapTextures)
+	: m_aValues(values),
+	  m_aTextures(textures),
 	  m_aFramebuffers(framebuffers),
 	  m_aPass(passes),
 	  m_aInstruction(instructions),
@@ -99,7 +100,7 @@ bool Instance::execute(void)
 {
 	unsigned int current = 0;
 
-	bool bRunning = true;
+	bool bRunning = m_aInstruction.size() > 0;
 
 	RenderGraph::Parameters parameters;
 
@@ -216,28 +217,19 @@ bool Instance::execute(void)
 
 			case OpCode::PUSH:
 			{
-				uint8_t type = (data >> 16) & 0xF;
-				uint16_t addr = data & 0xFFFF;
+				unsigned int index = (data >> 16) & 0xFF;
+				bool bIsTexture = (data & 0x8000) != 0;
+				uint16_t addr = data & 0x7FFF;
 
-				if (type == 0) // unsigned int
+				if (bIsTexture)
 				{
-					// TODO
-				}
-				else if (type == 1) // signed int
-				{
-					// TODO
-				}
-				else if (type == 2) // float
-				{
-					// TODO
-				}
-				else if (type == 3) // Texture
-				{
-					parameters.push_back(m_aTextures[addr]->getNativeHandle());
+					Value v;
+					v.asUInt = m_aTextures[addr]->getNativeHandle();
+					parameters.push_back(std::pair<unsigned int, Value>(index, v));
 				}
 				else
 				{
-					assert(false);
+					parameters.push_back(std::pair<unsigned int, Value>(index, m_aValues[addr]));
 				}
 			}
 			break;
@@ -293,7 +285,7 @@ unsigned int Instance::getRenderTexture(const char * name) const
 
 	if (it != m_mapTextures.end())
 	{
-		return it->second->getNativeHandle();
+		return m_aTextures[it->second]->getNativeHandle();
 	}
 
 	return 0;
@@ -308,8 +300,8 @@ unsigned int Instance::getRenderTexture(const char * name) const
  * @param mapTextures
  * @param defaultFramebuffer
  */
-InstanceWithExternalFramebuffer::InstanceWithExternalFramebuffer(const std::vector<Instruction> & instructions, const std::vector<Pass*> & passes, const std::vector<Framebuffer*> & framebuffers, const std::vector<Texture*> & textures, const std::map<std::string, Texture*> & mapTextures, unsigned int /*GLuint*/ defaultFramebuffer)
-	: Instance (instructions, passes, framebuffers, textures, mapTextures),
+InstanceWithExternalFramebuffer::InstanceWithExternalFramebuffer(const std::vector<Instruction> & instructions, const std::vector<Pass*> & passes, const std::vector<Framebuffer*> & framebuffers, const std::vector<Texture*> & textures, const std::vector<Value> & values,  const std::map<std::string, unsigned int> & mapTextures, unsigned int /*GLuint*/ defaultFramebuffer)
+	: Instance (instructions, passes, framebuffers, textures, values, mapTextures),
 	  m_iDefaultFramebuffer(defaultFramebuffer)
 {
 	// ...
@@ -341,11 +333,11 @@ unsigned int InstanceWithExternalFramebuffer::getDefaultFramebuffer(void) const
  * @param mapTextures
  * @param pDefaultFramebuffer
  */
-InstanceWithInternalFramebuffer::InstanceWithInternalFramebuffer(const std::vector<Instruction> & instructions, const std::vector<Pass*> & passes, const std::vector<Framebuffer*> & framebuffers, const std::vector<Texture*> & textures, const std::map<std::string, Texture*> & mapTextures, Framebuffer * pDefaultFramebuffer)
-	: Instance (instructions, passes, framebuffers, textures, mapTextures),
+InstanceWithInternalFramebuffer::InstanceWithInternalFramebuffer(const std::vector<Instruction> & instructions, const std::vector<Pass*> & passes, const std::vector<Framebuffer*> & framebuffers, const std::vector<Texture*> & textures, const std::vector<Value> & values,  const std::map<std::string, unsigned int> & mapTextures, Framebuffer * pDefaultFramebuffer)
+	: Instance (instructions, passes, framebuffers, textures, values, mapTextures),
 	  m_pDefaultFramebuffer(pDefaultFramebuffer)
 {
-	// ...
+	assert(nullptr != pDefaultFramebuffer);
 }
 
 /**

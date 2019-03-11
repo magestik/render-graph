@@ -12,6 +12,7 @@
 #include "Node.h"
 #include "Edge.h"
 
+#include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 
@@ -141,7 +142,9 @@ Instance * Factory::createInstanceFromGraph(const Graph & graph, bool bUseDefaul
 {
 	Node * pNodePresent = nullptr;
 	std::vector<Node*> aNodesTexture;
+	std::vector<Node*> aNodesFloat;
 	std::vector<Node*> aNodesPass;
+	std::vector<Node*> aNodesComparison;
 
 	for (Node * node : graph.getNodes())
 	{
@@ -154,9 +157,17 @@ Instance * Factory::createInstanceFromGraph(const Graph & graph, bool bUseDefaul
 		{
 			aNodesTexture.push_back(node);
 		}
+		else if (node->getType() == "float")
+		{
+			aNodesFloat.push_back(node);
+		}
 		else if (node->getType() == "pass")
 		{
 			aNodesPass.push_back(node);
+		}
+		else if (node->getType() == "comparison")
+		{
+			aNodesComparison.push_back(node);
 		}
 		else
 		{
@@ -164,7 +175,11 @@ Instance * Factory::createInstanceFromGraph(const Graph & graph, bool bUseDefaul
 		}
 	}
 
-	assert(nullptr != pNodePresent);
+	if (nullptr == pNodePresent)
+	{
+		assert(false);
+		return nullptr;
+	}
 
 	// ----------------------------------------------------------------------------------------
 
@@ -196,10 +211,29 @@ Instance * Factory::createInstanceFromGraph(const Graph & graph, bool bUseDefaul
 
 	// ----------------------------------------------------------------------------------------
 
+	std::vector<RenderGraph::Value> values;
+	values.reserve(aNodesFloat.size());
+
+	std::map<std::string, unsigned int> mapValues; // node identifier -> VM addr
+
+	for (Node * node : aNodesFloat)
+	{
+		const std::string & strId = node->getId();
+		const std::string & strValue = node->getMetaData("value");
+
+		mapValues.insert(std::pair<std::string, unsigned int>(strId, values.size()));
+
+		RenderGraph::Value value;
+		value.asFloat = atof(strValue.c_str());
+		values.push_back(value);
+	}
+
+	// ----------------------------------------------------------------------------------------
+
 	std::vector<Texture*> textures;
 	textures.reserve(aNodesTexture.size());
 
-	std::map<std::string, Texture*> mapTextures;
+	std::map<std::string, unsigned int> mapTextures; // node identifier -> VM addr
 
 	for (Node * node : aNodesTexture)
 	{
@@ -212,9 +246,9 @@ Instance * Factory::createInstanceFromGraph(const Graph & graph, bool bUseDefaul
 
 			Texture * texture = new Texture(format);
 
-			textures.push_back(texture);
+			mapTextures.insert(std::pair<std::string, unsigned int>(strId, textures.size()));
 
-			mapTextures.insert(std::pair<std::string, Texture*>(strId, texture));
+			textures.push_back(texture);
 		}
 	}
 
@@ -256,7 +290,7 @@ Instance * Factory::createInstanceFromGraph(const Graph & graph, bool bUseDefaul
 
 				if (it != mapTextures.end())
 				{
-					fbTextures.push_back(it->second);
+					fbTextures.push_back(textures[it->second]);
 				}
 				else
 				{
@@ -316,19 +350,36 @@ Instance * Factory::createInstanceFromGraph(const Graph & graph, bool bUseDefaul
 				for (Edge * edge : inEdges)
 				{
 					Node * source = edge->getSource();
-					assert(source->getType() == "texture");
 
 					const std::string & strId = source->getId();
 
-					auto it = mapTextures.find(strId);
+					const std::string & target_id = edge->getMetaData("target_id");
+					int paramIndex = atoi(target_id.c_str());
+					assert(paramIndex < UINT8_MAX);
 
-					if (it != mapTextures.end())
+					if (source->getType() == "texture")
 					{
-						std::vector<Texture*>::iterator it2 = std::find(textures.begin(), textures.end(), it->second);
-						unsigned int index = std::distance(textures.begin(), it2);
-						Instruction instr = (uint32_t(OpCode::PUSH) << 24) | (3 << 16) | (index & 0xFFFF);
-						instructions.push_back(instr);
-						printf("PUSH %d (%d)\n", index, it->second->getNativeHandle());
+						auto it = mapTextures.find(strId);
+
+						if (it != mapTextures.end())
+						{
+							unsigned int index = it->second;
+							Instruction instr = (uint32_t(OpCode::PUSH) << 24) | ((paramIndex & 0xFF) << 16) | (1 << 15) | (index & 0x7FFF);
+							instructions.push_back(instr);
+							printf("PUSH %d (%d)\n", index, textures[it->second]->getNativeHandle());
+						}
+					}
+					else if (source->getType() == "float")
+					{
+						auto it = mapValues.find(strId);
+
+						if (it != mapValues.end())
+						{
+							unsigned int index = it->second;
+							Instruction instr = (uint32_t(OpCode::PUSH) << 24) | ((paramIndex & 0xFF) << 16) | (0 << 15) | (index & 0x7FFF);
+							instructions.push_back(instr);
+							printf("PUSH %d\n", index);
+						}
 					}
 				}
 			}
@@ -345,6 +396,7 @@ Instance * Factory::createInstanceFromGraph(const Graph & graph, bool bUseDefaul
 				{
 					std::vector<Pass*>::iterator it2 = std::find(passes.begin(), passes.end(), it->second);
 					unsigned int index = std::distance(passes.begin(), it2);
+
 					Instruction instr = (uint32_t(OpCode::CALL) << 24) | (0 << 16) | (index & 0xFFFF);
 					instructions.push_back(instr);
 					printf("CALL %d\n", index);
@@ -359,15 +411,20 @@ Instance * Factory::createInstanceFromGraph(const Graph & graph, bool bUseDefaul
 
 	fflush(stdout);
 
+	if (instructions.size() == 0)
+	{
+		return nullptr;
+	}
+
 	Instance * pRenderGraph = nullptr;
 
 	if (bUseDefaultFramebuffer)
 	{
-		pRenderGraph = new InstanceWithExternalFramebuffer(instructions, passes, framebuffers, textures, mapTextures, defaultFramebuffer);
+		pRenderGraph = new InstanceWithExternalFramebuffer(instructions, passes, framebuffers, textures, values, mapTextures, defaultFramebuffer);
 	}
 	else
 	{
-		pRenderGraph = new InstanceWithInternalFramebuffer(instructions, passes, framebuffers, textures, mapTextures, pDefaultFramebuffer);
+		pRenderGraph = new InstanceWithInternalFramebuffer(instructions, passes, framebuffers, textures, values, mapTextures, pDefaultFramebuffer);
 	}
 
 	assert(pRenderGraph != nullptr);

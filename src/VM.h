@@ -2,6 +2,8 @@
 
 #include <inttypes.h>
 
+#include <vector>
+
 namespace RenderGraph
 {
 
@@ -24,6 +26,20 @@ enum class OpCode : uint8_t
 	// Functions
 	PUSH,
 	CALL
+};
+
+union Value
+{
+	unsigned int	asUInt;
+	int				asInt;
+	float			asFloat;
+};
+
+static_assert(sizeof (Value) == sizeof(uint32_t), "Value union does not have the expected size");
+
+class Parameters : public std::vector<std::pair<unsigned int, Value>>
+{
+
 };
 
 enum CallType

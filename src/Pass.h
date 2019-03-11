@@ -1,13 +1,10 @@
 #pragma once
 
-#include <vector>
-
 namespace RenderGraph
 {
 
 class Framebuffer;
-
-typedef std::vector<unsigned int> Parameters;
+class Parameters;
 
 class Pass
 {
