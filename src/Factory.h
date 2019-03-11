@@ -1,7 +1,5 @@
 #pragma once
 
-#include "PassDescriptor.h"
-
 #include <vector>
 
 class Graph;
@@ -9,7 +7,10 @@ class Graph;
 namespace RenderGraph
 {
 
-class Queue;
+class Pass;
+class Instance;
+
+typedef Pass* (*PassFactory)(void);
 
 class Factory
 {
@@ -18,12 +19,26 @@ public:
 	Factory(void);
 	~Factory(void);
 
-	Queue * createQueueFromGraph(const Graph & graph);
-	void destroyQueue(Queue * queue);
+	bool			registerPass				(const char * identifier, PassFactory factory);
 
-	bool registerPassDescriptor(const PassDescriptor & descriptor);
+	Instance *		createInstanceFromGraph		(const Graph & graph) const;
+	Instance *		createInstanceFromGraph		(const Graph & graph, unsigned int /*GLuint*/ defaultFramebuffer) const;
+	void			destroyInstance				(Instance * queue) const;
+
+protected:
+
+	Instance *		createInstanceFromGraph		(const Graph & graph, bool bUseDefaultFramebuffer, unsigned int /*GLuint*/ defaultFramebuffer = 0) const;
+
+	Pass *			createPass					(const char * identifier) const;
+	void			destroyPass					(Pass * pass) const;
 
 private:
+
+	struct PassDescriptor
+	{
+		const char * identifier;
+		PassFactory factory;
+	};
 
 	std::vector<PassDescriptor> m_descriptors;
 };

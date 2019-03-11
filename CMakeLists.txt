@@ -29,6 +29,8 @@ endif (ENABLE_ASAN)
 
 add_subdirectory(src)
 
+add_subdirectory(example)
+
 # Export / Install
 
 set(EXPORT_PATH "${CMAKE_CURRENT_BINARY_DIR}" CACHE PATH "Export path")
