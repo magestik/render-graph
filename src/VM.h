@@ -7,11 +7,13 @@
 namespace RenderGraph
 {
 
-typedef uint32_t Instruction;
-
 enum class OpCode : uint8_t
 {
 	NOP,
+
+	// Stack
+	PUSH,
+	POP,
 
 	// Arithmetic
 	ADD,
@@ -24,8 +26,8 @@ enum class OpCode : uint8_t
 	JMP,
 
 	// Functions
-	PUSH,
-	CALL
+	CALL,
+	HALT
 };
 
 union Value
@@ -33,6 +35,7 @@ union Value
 	unsigned int	asUInt;
 	int				asInt;
 	float			asFloat;
+	bool			asBool;
 };
 
 static_assert(sizeof (Value) == sizeof(uint32_t), "Value union does not have the expected size");
@@ -46,13 +49,5 @@ enum CallType
 {
 	PASS
 };
-
-enum CmpResult
-{
-	NEG,
-	POS,
-	ZERO,
-};
-
 
 }

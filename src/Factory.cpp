@@ -111,7 +111,24 @@ Factory::~Factory(void)
  */
 Instance * Factory::createInstanceFromGraph(const Graph & graph) const
 {
-	Instance * pInstance = createInstanceFromGraph(graph, false);
+	std::map<std::string, unsigned int> mapTextures;
+	std::map<std::string, unsigned int> mapValues;
+
+	Instance * pInstance = createInstanceFromGraph(graph, mapTextures, mapValues, false);
+
+	assert(pInstance != nullptr);
+
+	return pInstance;
+}
+
+/**
+ * @brief Factory::createInstanceFromGraph
+ * @param graph
+ * @return
+ */
+Instance * Factory::createInstanceFromGraph(const Graph & graph, std::map<std::string, unsigned int> & mapTextures, std::map<std::string, unsigned int> & mapValues) const
+{
+	Instance * pInstance = createInstanceFromGraph(graph, mapTextures, mapValues, false);
 
 	assert(pInstance != nullptr);
 
@@ -126,7 +143,25 @@ Instance * Factory::createInstanceFromGraph(const Graph & graph) const
  */
 Instance * Factory::createInstanceFromGraph(const Graph & graph, unsigned int /*GLuint*/ defaultFramebuffer) const
 {
-	Instance * pInstance = createInstanceFromGraph(graph, true, defaultFramebuffer);
+	std::map<std::string, unsigned int> mapTextures;
+	std::map<std::string, unsigned int> mapValues;
+
+	Instance * pInstance = createInstanceFromGraph(graph, mapTextures, mapValues, true, defaultFramebuffer);
+
+	assert(pInstance != nullptr);
+
+	return pInstance;
+}
+
+/**
+ * @brief Factory::createInstanceFromGraph
+ * @param graph
+ * @param defaultFramebuffer
+ * @return
+ */
+Instance * Factory::createInstanceFromGraph(const Graph & graph, unsigned int /*GLuint*/ defaultFramebuffer, std::map<std::string, unsigned int> & mapTextures, std::map<std::string, unsigned int> & mapValues) const
+{
+	Instance * pInstance = createInstanceFromGraph(graph, mapTextures, mapValues, true, defaultFramebuffer);
 
 	assert(pInstance != nullptr);
 
@@ -138,13 +173,16 @@ Instance * Factory::createInstanceFromGraph(const Graph & graph, unsigned int /*
  * @param graph
  * @return
  */
-Instance * Factory::createInstanceFromGraph(const Graph & graph, bool bUseDefaultFramebuffer, unsigned int /*GLuint*/ defaultFramebuffer) const
+Instance * Factory::createInstanceFromGraph(const Graph & graph, std::map<std::string, unsigned int> & mapTextures, std::map<std::string, unsigned int> & mapValues, bool bUseDefaultFramebuffer, unsigned int /*GLuint*/ defaultFramebuffer) const
 {
+	mapTextures.clear();
+	mapValues.clear();
+
 	Node * pNodePresent = nullptr;
 	std::vector<Node*> aNodesTexture;
 	std::vector<Node*> aNodesFloat;
 	std::vector<Node*> aNodesPass;
-	std::vector<Node*> aNodesComparison;
+	std::vector<Node*> aNodesOperator;
 
 	for (Node * node : graph.getNodes())
 	{
@@ -157,17 +195,29 @@ Instance * Factory::createInstanceFromGraph(const Graph & graph, bool bUseDefaul
 		{
 			aNodesTexture.push_back(node);
 		}
-		else if (node->getType() == "float")
-		{
-			aNodesFloat.push_back(node);
-		}
 		else if (node->getType() == "pass")
 		{
 			aNodesPass.push_back(node);
 		}
-		else if (node->getType() == "comparison")
+		else if (node->getType() == "float")
 		{
-			aNodesComparison.push_back(node);
+			aNodesFloat.push_back(node);
+		}
+		else if (node->getType() == "addition")
+		{
+			aNodesOperator.push_back(node);
+		}
+		else if (node->getType() == "subtraction")
+		{
+			aNodesOperator.push_back(node);
+		}
+		else if (node->getType() == "multiplication")
+		{
+			aNodesOperator.push_back(node);
+		}
+		else if (node->getType() == "division")
+		{
+			aNodesOperator.push_back(node);
 		}
 		else
 		{
@@ -214,26 +264,43 @@ Instance * Factory::createInstanceFromGraph(const Graph & graph, bool bUseDefaul
 	std::vector<RenderGraph::Value> values;
 	values.reserve(aNodesFloat.size());
 
-	std::map<std::string, unsigned int> mapValues; // node identifier -> VM addr
-
 	for (Node * node : aNodesFloat)
 	{
 		const std::string & strId = node->getId();
 		const std::string & strValue = node->getMetaData("value");
 
-		mapValues.insert(std::pair<std::string, unsigned int>(strId, values.size()));
+		unsigned int index = values.size();
+
+		mapValues.insert(std::pair<std::string, unsigned int>(strId, index));
 
 		RenderGraph::Value value;
 		value.asFloat = atof(strValue.c_str());
 		values.push_back(value);
+
+		printf("CONSTANT[%d] = %f\n", index, value.asFloat);
+	}
+
+	// ----------------------------------------------------------------------------------------
+
+	for (Node * node : aNodesOperator)
+	{
+		const std::string & strId = node->getId();
+
+		unsigned int index = values.size();
+
+		mapValues.insert(std::pair<std::string, unsigned int>(strId, index));
+
+		RenderGraph::Value value;
+		value.asFloat = 0.0f;
+		values.push_back(value);
+
+		printf("VARIABLE[%d] = 0\n", index);
 	}
 
 	// ----------------------------------------------------------------------------------------
 
 	std::vector<Texture*> textures;
 	textures.reserve(aNodesTexture.size());
-
-	std::map<std::string, unsigned int> mapTextures; // node identifier -> VM addr
 
 	for (Node * node : aNodesTexture)
 	{
@@ -242,13 +309,17 @@ Instance * Factory::createInstanceFromGraph(const Graph & graph, bool bUseDefaul
 			const std::string & strId = node->getId();
 			const std::string & strFormat = node->getMetaData("format");
 
+			unsigned int index = textures.size();
+
 			TextureFormat format = strToFormat(strFormat.c_str());
 
 			Texture * texture = new Texture(format);
 
-			mapTextures.insert(std::pair<std::string, unsigned int>(strId, textures.size()));
+			mapTextures.insert(std::pair<std::string, unsigned int>(strId, index));
 
 			textures.push_back(texture);
+
+			printf("TEXTURE[%d] = %" PRIXPTR "\n", index, (uintptr_t)texture);
 		}
 	}
 
@@ -258,8 +329,6 @@ Instance * Factory::createInstanceFromGraph(const Graph & graph, bool bUseDefaul
 
 	std::vector<Framebuffer*> framebuffers;
 	framebuffers.reserve(aNodesPass.size());
-
-	std::map<std::string, Framebuffer*> mapFramebuffers;
 
 	for (Node * node : aNodesPass)
 	{
@@ -308,8 +377,6 @@ Instance * Factory::createInstanceFromGraph(const Graph & graph, bool bUseDefaul
 		}
 
 		framebuffers.push_back(framebuffer);
-
-		mapFramebuffers.insert(std::pair<std::string, Framebuffer*>(strId, framebuffer));
 	}
 
 	// ----------------------------------------------------------------------------------------
@@ -317,7 +384,7 @@ Instance * Factory::createInstanceFromGraph(const Graph & graph, bool bUseDefaul
 	std::vector<Pass*> passes;
 	passes.reserve(aNodesPass.size());
 
-	std::map<std::string, Pass*> mapPasses;
+	std::map<std::string, unsigned int> mapPasses;
 
 	for (Node * node : aNodesPass)
 	{
@@ -326,105 +393,356 @@ Instance * Factory::createInstanceFromGraph(const Graph & graph, bool bUseDefaul
 
 		Pass * pass = createPass(strSubType.c_str());
 
-		passes.push_back(pass);
+		mapPasses.insert(std::pair<std::string, unsigned int>(strId, passes.size()));
 
-		mapPasses.insert(std::pair<std::string, Pass*>(strId, pass));
+		passes.push_back(pass);
 	}
 
 	// ----------------------------------------------------------------------------------------
 
-	std::vector<Instruction> instructions;
+	std::vector<uint8_t> bytecode;
 
 	for (std::vector<Node*>::reverse_iterator it = queue.rbegin(); it != queue.rend(); ++it)
 	{
 		Node * node = *it;
 
-		if (node->getType() == "pass")
+		const std::string & strCurrentNodeId = node->getId();
+
+		if (node->getType() == "addition")
 		{
-			//
-			// Parameters
+			uint16_t parameters [2];
+
+			std::vector<Edge*> inEdges;
+			graph.getEdgeTo(node, inEdges);
+
+			for (Edge * edge : inEdges)
 			{
-				std::vector<Edge*> inEdges;
-				graph.getEdgeTo(node, inEdges);
+				Node * source = edge->getSource();
 
-				for (Edge * edge : inEdges)
+				const std::string & strId = source->getId();
+
+				const std::string & target_id = edge->getMetaData("target_id");
+				int paramIndex = atoi(target_id.c_str());
+				assert(paramIndex < UINT8_MAX);
+
+				assert(source->getType() != "present" && source->getType() != "pass" && source->getType() != "texture");
 				{
-					Node * source = edge->getSource();
+					auto it = mapValues.find(strId);
 
-					const std::string & strId = source->getId();
-
-					const std::string & target_id = edge->getMetaData("target_id");
-					int paramIndex = atoi(target_id.c_str());
-					assert(paramIndex < UINT8_MAX);
-
-					if (source->getType() == "texture")
+					if (it != mapValues.end())
 					{
-						auto it = mapTextures.find(strId);
-
-						if (it != mapTextures.end())
-						{
-							unsigned int index = it->second;
-							Instruction instr = (uint32_t(OpCode::PUSH) << 24) | ((paramIndex & 0xFF) << 16) | (1 << 15) | (index & 0x7FFF);
-							instructions.push_back(instr);
-							printf("PUSH %d (%d)\n", index, textures[it->second]->getNativeHandle());
-						}
-					}
-					else if (source->getType() == "float")
-					{
-						auto it = mapValues.find(strId);
-
-						if (it != mapValues.end())
-						{
-							unsigned int index = it->second;
-							Instruction instr = (uint32_t(OpCode::PUSH) << 24) | ((paramIndex & 0xFF) << 16) | (0 << 15) | (index & 0x7FFF);
-							instructions.push_back(instr);
-							printf("PUSH %d\n", index);
-						}
+						unsigned int index = it->second;
+						uint16_t addr = (0 << 15) | (index & 0x7FFF);
+						parameters[paramIndex] = addr;
 					}
 				}
 			}
 
-			//
-			// Call
+			for (int i = 0; i < 2; ++i)
 			{
-				const std::string & strId = node->getId();
-				const std::string & strSubType = node->getMetaData("subtype");
+				bytecode.push_back(uint8_t(OpCode::PUSH));
+				bytecode.push_back(uint8_t((parameters[i] >> 8) & 0xFF));
+				bytecode.push_back(uint8_t((parameters[i]) & 0xFF));
 
-				auto it = mapPasses.find(strId);
+				printf("PUSH %d\n", parameters[i]);
+			}
 
-				if (it != mapPasses.end())
+			bytecode.push_back(uint8_t(OpCode::ADD));
+			bytecode.push_back(uint8_t(2)); // float
+
+			printf("ADD (float)\n");
+
+			auto it = mapValues.find(strCurrentNodeId);
+
+			if (it != mapValues.end())
+			{
+				unsigned int index = it->second;
+				uint16_t addr = (index & 0xFFFF);
+
+				bytecode.push_back(uint8_t(OpCode::POP));
+				bytecode.push_back(uint8_t((addr >> 8) & 0xFF));
+				bytecode.push_back(uint8_t((addr) & 0xFF));
+
+				printf("POP %d\n", addr);
+			}
+		}
+		else if (node->getType() == "subtraction")
+		{
+			uint16_t parameters [2];
+
+			std::vector<Edge*> inEdges;
+			graph.getEdgeTo(node, inEdges);
+
+			for (Edge * edge : inEdges)
+			{
+				Node * source = edge->getSource();
+
+				const std::string & strId = source->getId();
+
+				const std::string & target_id = edge->getMetaData("target_id");
+				int paramIndex = atoi(target_id.c_str());
+				assert(paramIndex < UINT8_MAX);
+
+				assert(source->getType() != "present" && source->getType() != "pass" && source->getType() != "texture");
 				{
-					std::vector<Pass*>::iterator it2 = std::find(passes.begin(), passes.end(), it->second);
-					unsigned int index = std::distance(passes.begin(), it2);
+					auto it = mapValues.find(strId);
 
-					Instruction instr = (uint32_t(OpCode::CALL) << 24) | (0 << 16) | (index & 0xFFFF);
-					instructions.push_back(instr);
-					printf("CALL %d\n", index);
+					if (it != mapValues.end())
+					{
+						unsigned int index = it->second;
+						uint16_t addr = (0 << 15) | (index & 0x7FFF);
+						parameters[paramIndex] = addr;
+					}
+				}
+			}
+
+			for (int i = 0; i < 2; ++i)
+			{
+				bytecode.push_back(uint8_t(OpCode::PUSH));
+				bytecode.push_back(uint8_t((parameters[i] >> 8) & 0xFF));
+				bytecode.push_back(uint8_t((parameters[i]) & 0xFF));
+
+				printf("PUSH %d\n", parameters[i]);
+			}
+
+			bytecode.push_back(uint8_t(OpCode::SUB));
+			bytecode.push_back(uint8_t(2)); // float
+
+			printf("SUB (float)\n");
+
+			auto it = mapValues.find(strCurrentNodeId);
+
+			if (it != mapValues.end())
+			{
+				unsigned int index = it->second;
+				uint16_t addr = (index & 0xFFFF);
+
+				bytecode.push_back(uint8_t(OpCode::POP));
+				bytecode.push_back(uint8_t((addr >> 8) & 0xFF));
+				bytecode.push_back(uint8_t((addr) & 0xFF));
+
+				printf("POP %d\n", addr);
+			}
+		}
+		else if (node->getType() == "multiplication")
+		{
+			uint16_t parameters [2];
+
+			std::vector<Edge*> inEdges;
+			graph.getEdgeTo(node, inEdges);
+
+			for (Edge * edge : inEdges)
+			{
+				Node * source = edge->getSource();
+
+				const std::string & strId = source->getId();
+
+				const std::string & target_id = edge->getMetaData("target_id");
+				int paramIndex = atoi(target_id.c_str());
+				assert(paramIndex < UINT8_MAX);
+
+				assert(source->getType() != "present" && source->getType() != "pass" && source->getType() != "texture");
+				{
+					auto it = mapValues.find(strId);
+
+					if (it != mapValues.end())
+					{
+						unsigned int index = it->second;
+						uint16_t addr = (0 << 15) | (index & 0x7FFF);
+						parameters[paramIndex] = addr;
+					}
+				}
+			}
+
+			for (int i = 0; i < 2; ++i)
+			{
+				bytecode.push_back(uint8_t(OpCode::PUSH));
+				bytecode.push_back(uint8_t((parameters[i] >> 8) & 0xFF));
+				bytecode.push_back(uint8_t((parameters[i]) & 0xFF));
+
+				printf("PUSH %d\n", parameters[i]);
+			}
+
+			bytecode.push_back(uint8_t(OpCode::MUL));
+			bytecode.push_back(uint8_t(2)); // float
+
+			printf("MUL (float)\n");
+
+			auto it = mapValues.find(strCurrentNodeId);
+
+			if (it != mapValues.end())
+			{
+				unsigned int index = it->second;
+				uint16_t addr = (index & 0xFFFF);
+
+				bytecode.push_back(uint8_t(OpCode::POP));
+				bytecode.push_back(uint8_t((addr >> 8) & 0xFF));
+				bytecode.push_back(uint8_t((addr) & 0xFF));
+
+				printf("POP %d\n", addr);
+			}
+		}
+		else if (node->getType() == "division")
+		{
+			uint16_t parameters [2];
+
+			std::vector<Edge*> inEdges;
+			graph.getEdgeTo(node, inEdges);
+
+			for (Edge * edge : inEdges)
+			{
+				Node * source = edge->getSource();
+
+				const std::string & strId = source->getId();
+
+				const std::string & target_id = edge->getMetaData("target_id");
+				int paramIndex = atoi(target_id.c_str());
+				assert(paramIndex < UINT8_MAX);
+
+				assert(source->getType() != "present" && source->getType() != "pass" && source->getType() != "texture");
+				{
+					auto it = mapValues.find(strId);
+
+					if (it != mapValues.end())
+					{
+						unsigned int index = it->second;
+						uint16_t addr = (0 << 15) | (index & 0x7FFF);
+						parameters[paramIndex] = addr;
+					}
+				}
+			}
+
+			for (int i = 0; i < 2; ++i)
+			{
+				bytecode.push_back(uint8_t(OpCode::PUSH));
+				bytecode.push_back(uint8_t((parameters[i] >> 8) & 0xFF));
+				bytecode.push_back(uint8_t((parameters[i]) & 0xFF));
+
+				printf("PUSH %d\n", parameters[i]);
+			}
+
+			bytecode.push_back(uint8_t(OpCode::DIV));
+			bytecode.push_back(uint8_t(2)); // float
+
+			printf("DIV (float)\n");
+
+			auto it = mapValues.find(strCurrentNodeId);
+
+			if (it != mapValues.end())
+			{
+				unsigned int index = it->second;
+				uint16_t addr = (index & 0xFFFF);
+
+				bytecode.push_back(uint8_t(OpCode::POP));
+				bytecode.push_back(uint8_t((addr >> 8) & 0xFF));
+				bytecode.push_back(uint8_t((addr) & 0xFF));
+
+				printf("POP %d\n", addr);
+			}
+		}
+		else if (node->getType() == "pass")
+		{
+			std::vector<uint16_t> parameters;
+
+			//
+			// Get parameters
+			std::vector<Edge*> inEdges;
+			graph.getEdgeTo(node, inEdges);
+
+			parameters.resize(inEdges.size());
+
+			for (Edge * edge : inEdges)
+			{
+				Node * source = edge->getSource();
+
+				const std::string & strId = source->getId();
+
+				const std::string & target_id = edge->getMetaData("target_id");
+				int paramIndex = atoi(target_id.c_str());
+				assert(paramIndex < UINT8_MAX);
+
+				if (source->getType() == "texture")
+				{
+					auto it = mapTextures.find(strId);
+
+					if (it != mapTextures.end())
+					{
+						unsigned int index = it->second;
+						uint16_t addr = (1 << 15) | (index & 0x7FFF);
+						parameters[paramIndex] = addr;
+					}
 				}
 				else
 				{
-					assert(false);
+					assert(source->getType() != "present" && source->getType() != "pass" && source->getType() != "texture");
+
+					auto it = mapValues.find(strId);
+
+					if (it != mapValues.end())
+					{
+						unsigned int index = it->second;
+						uint16_t addr = (0 << 15) | (index & 0x7FFF);
+						parameters[paramIndex] = addr;
+					}
 				}
+			}
+
+			assert(parameters.size() < UINT8_MAX);
+
+			//
+			// Compile parameters
+			for (int i = 0; i < parameters.size(); ++i)
+			{
+				bytecode.push_back(uint8_t(OpCode::PUSH));
+				bytecode.push_back(uint8_t((parameters[i] >> 8) & 0xFF));
+				bytecode.push_back(uint8_t((parameters[i]) & 0xFF));
+
+				printf("PUSH %d\n", parameters[i]);
+			}
+
+			//
+			// Call
+			auto it = mapPasses.find(strCurrentNodeId);
+
+			if (it != mapPasses.end())
+			{
+				unsigned int index = it->second;
+				uint16_t addr = (index & 0xFFFF);
+
+				bytecode.push_back(uint8_t(OpCode::CALL));
+				bytecode.push_back(0 << 16); // Pass
+				bytecode.push_back(uint8_t(parameters.size()));
+				bytecode.push_back(uint8_t((addr >> 8) & 0xFF));
+				bytecode.push_back(uint8_t((addr) & 0xFF));
+
+				printf("CALL (PASS) %d\n", index);
+			}
+			else
+			{
+				assert(false);
 			}
 		}
 	}
 
 	fflush(stdout);
 
-	if (instructions.size() == 0)
+	if (bytecode.size() == 0)
 	{
 		return nullptr;
 	}
+
+	bytecode.push_back(uint8_t(OpCode::HALT));
+	printf("HALT\n");
 
 	Instance * pRenderGraph = nullptr;
 
 	if (bUseDefaultFramebuffer)
 	{
-		pRenderGraph = new InstanceWithExternalFramebuffer(instructions, passes, framebuffers, textures, values, mapTextures, defaultFramebuffer);
+		pRenderGraph = new InstanceWithExternalFramebuffer(bytecode, passes, framebuffers, textures, values, defaultFramebuffer);
 	}
 	else
 	{
-		pRenderGraph = new InstanceWithInternalFramebuffer(instructions, passes, framebuffers, textures, values, mapTextures, pDefaultFramebuffer);
+		pRenderGraph = new InstanceWithInternalFramebuffer(bytecode, passes, framebuffers, textures, values, pDefaultFramebuffer);
 	}
 
 	assert(pRenderGraph != nullptr);

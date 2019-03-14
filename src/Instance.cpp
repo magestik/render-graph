@@ -13,6 +13,10 @@
 
 #include <assert.h>
 
+#include <stack>
+
+#define READ_BYTE() (*current++)
+
 namespace RenderGraph
 {
 
@@ -24,13 +28,12 @@ namespace RenderGraph
  * @param textures
  * @param mapTextures
  */
-Instance::Instance(const std::vector<Instruction> & instructions, const std::vector<Pass*> & passes, const std::vector<Framebuffer*> & framebuffers, const std::vector<Texture*> & textures, const std::vector<Value> & values, const std::map<std::string, unsigned int> & mapTextures)
+Instance::Instance(const std::vector<uint8_t> & bytecode, const std::vector<Pass*> & passes, const std::vector<Framebuffer*> & framebuffers, const std::vector<Texture*> & textures, const std::vector<Value> & values)
 	: m_aValues(values),
 	  m_aTextures(textures),
 	  m_aFramebuffers(framebuffers),
 	  m_aPass(passes),
-	  m_aInstruction(instructions),
-	  m_mapTextures(mapTextures)
+	  m_bytecode(bytecode)
 {
 	assert(passes.size() == framebuffers.size());
 }
@@ -98,26 +101,20 @@ bool Instance::resize(unsigned int width, unsigned int height)
  */
 bool Instance::execute(void)
 {
-	unsigned int current = 0;
+	std::stack<Value> stack;
 
-	bool bRunning = m_aInstruction.size() > 0;
+	uint8_t * current = m_bytecode.data();
 
-	RenderGraph::Parameters parameters;
-
-	CmpResult last_cmp = ZERO;
+	bool bRunning = m_bytecode.size() > 0;
 
 	while (bRunning)
 	{
 		// fetch next instruction
-		assert(current < m_aInstruction.size());
-		Instruction instruction = m_aInstruction[current];
+		assert(current < m_bytecode.data() + m_bytecode.size());
+		uint8_t instruction = READ_BYTE();
 
 		// decode instruction
-		OpCode op = OpCode(instruction >> 24);
-		unsigned int data = instruction & 0xFFFFFF;
-
-		// execute instruction
-		switch (op)
+		switch (OpCode(instruction))
 		{
 			case OpCode::NOP:
 			{
@@ -125,119 +122,272 @@ bool Instance::execute(void)
 			}
 			break;
 
+			case OpCode::PUSH:
+			{
+				uint8_t addrhi = READ_BYTE();
+				uint8_t addrlo = READ_BYTE();
+
+				bool bIsTexture = (addrhi & 0x80) != 0;
+				uint16_t addr = ((addrhi << 8) | addrlo) & 0x7FFF;
+
+				if (bIsTexture)
+				{
+					Value v;
+					v.asUInt = m_aTextures[addr]->getNativeHandle();
+					stack.push(v);
+				}
+				else
+				{
+					stack.push(m_aValues[addr]);
+				}
+			}
+			break;
+
+			case OpCode::POP:
+			{
+				uint8_t addrhi = READ_BYTE();
+				uint8_t addrlo = READ_BYTE();
+
+				bool bIsTexture = (addrhi & 0x80) != 0;
+				uint16_t addr = ((addrhi << 8) | addrlo) & 0x7FFF;
+
+				assert(!bIsTexture); // can't pop in texture
+
+				m_aValues[addr] = stack.top();
+				stack.pop();
+			}
+			break;
+
 			case OpCode::ADD:
 			{
+				uint8_t mode = READ_BYTE();
+
+				Value v2 = stack.top();
+				stack.pop();
+
+				Value v1 = stack.top();
+				stack.pop();
+
+				if (mode == 0) // unsigned int
+				{
+					Value result;
+					result.asUInt = v1.asUInt + v2.asUInt;
+					stack.push(result);
+				}
+				else if (mode == 1) // singed int
+				{
+					Value result;
+					result.asInt = v1.asInt + v2.asInt;
+					stack.push(result);
+				}
+				else if (mode == 2) // float
+				{
+					Value result;
+					result.asFloat = v1.asFloat + v2.asFloat;
+					stack.push(result);
+				}
 			}
 			break;
 
 			case OpCode::SUB:
 			{
+				uint8_t mode = READ_BYTE();
+
+				Value v2 = stack.top();
+				stack.pop();
+
+				Value v1 = stack.top();
+				stack.pop();
+
+				if (mode == 0) // unsigned int
+				{
+					Value result;
+					result.asUInt = v1.asUInt - v2.asUInt;
+					stack.push(result);
+				}
+				else if (mode == 1) // singed int
+				{
+					Value result;
+					result.asInt = v1.asInt - v2.asInt;
+					stack.push(result);
+				}
+				else if (mode == 2) // float
+				{
+					Value result;
+					result.asFloat = v1.asFloat - v2.asFloat;
+					stack.push(result);
+				}
 			}
 			break;
 
 			case OpCode::MUL:
 			{
+				uint8_t mode = READ_BYTE();
+
+				Value v2 = stack.top();
+				stack.pop();
+
+				Value v1 = stack.top();
+				stack.pop();
+
+				if (mode == 0) // unsigned int
+				{
+					Value result;
+					result.asUInt = v1.asUInt * v2.asUInt;
+					stack.push(result);
+				}
+				else if (mode == 1) // singed int
+				{
+					Value result;
+					result.asInt = v1.asInt * v2.asInt;
+					stack.push(result);
+				}
+				else if (mode == 2) // float
+				{
+					Value result;
+					result.asFloat = v1.asFloat * v2.asFloat;
+					stack.push(result);
+				}
 			}
 			break;
 
 			case OpCode::DIV:
 			{
+				uint8_t mode = READ_BYTE();
+
+				Value v2 = stack.top();
+				stack.pop();
+
+				Value v1 = stack.top();
+				stack.pop();
+
+				if (mode == 0) // unsigned int
+				{
+					Value result;
+					result.asUInt = v1.asUInt / v2.asUInt;
+					stack.push(result);
+				}
+				else if (mode == 1) // singed int
+				{
+					Value result;
+					result.asInt = v1.asInt / v2.asInt;
+					stack.push(result);
+				}
+				else if (mode == 2) // float
+				{
+					Value result;
+					result.asFloat = v1.asFloat / v2.asFloat;
+					stack.push(result);
+				}
 			}
 			break;
 
 			case OpCode::CMP:
 			{
-				uint8_t mode = (data >> 16) & 0xF;
-				uint16_t addr = data & 0xFFFF;
+				uint8_t mode = READ_BYTE();
+
+				Value v2 = stack.top();
+				stack.pop();
+
+				Value v1 = stack.top();
+				stack.pop();
 
 				if (mode == 0) // unsigned int
 				{
-					// TODO
+					Value result;
+					result.asUInt = v2.asUInt - v1.asUInt;
+					stack.push(result);
 				}
-				else if (mode == 1) // signed int
+				else if (mode == 1) // singed int
 				{
-					// TODO
+					Value result;
+					result.asInt = v2.asInt - v1.asInt;
+					stack.push(result);
 				}
 				else if (mode == 2) // float
 				{
-					// TODO
+					Value result;
+					result.asFloat = v2.asFloat - v1.asFloat;
+					stack.push(result);
 				}
 			}
 			break;
 
 			case OpCode::JMP:
 			{
-				uint8_t mode = (data >> 16) & 0xF;
-				uint16_t addr = data & 0xFFFF;
+				uint8_t mode = READ_BYTE();
+
+				uint8_t addrhi = READ_BYTE();
+				uint8_t addrlo = READ_BYTE();
+				uint16_t addr = ((addrhi << 8) | addrlo) & 0xFFFF;
+
+				Value v = stack.top();
+				stack.pop();
 
 				if (mode == 0) // JNE
 				{
-					if (last_cmp != ZERO)
+					if (v.asInt != 0)
 					{
-						current += addr - 1;
+						current = m_bytecode.data() + addr;
 					}
 				}
 				else if (mode == 1) // JE
 				{
-					if (last_cmp == ZERO)
+					if (v.asInt == 0)
 					{
-						current += addr - 1;
+						current = m_bytecode.data() + addr;
 					}
 				}
 				else if (mode == 2) // JG
 				{
-					if (last_cmp == POS)
+					if (v.asInt > 0)
 					{
-						current += addr - 1;
+						current = m_bytecode.data() + addr;
 					}
 				}
 				else if (mode == 3) // JGE
 				{
-					if (last_cmp == POS || last_cmp == ZERO)
+					if (v.asInt >= 0)
 					{
-						current += addr - 1;
+						current = m_bytecode.data() + addr;
 					}
 				}
 				else if (mode == 4) // JL
 				{
-					if (last_cmp == NEG)
+					if (v.asInt < 0)
 					{
-						current += addr - 1;
+						current = m_bytecode.data() + addr;
 					}
 				}
 				else if (mode == 3) // JLE
 				{
-					if (last_cmp == NEG || last_cmp == ZERO)
+					if (v.asInt <= 0)
 					{
-						current += addr - 1;
+						current = m_bytecode.data() + addr;
 					}
-				}
-			}
-			break;
-
-			case OpCode::PUSH:
-			{
-				unsigned int index = (data >> 16) & 0xFF;
-				bool bIsTexture = (data & 0x8000) != 0;
-				uint16_t addr = data & 0x7FFF;
-
-				if (bIsTexture)
-				{
-					Value v;
-					v.asUInt = m_aTextures[addr]->getNativeHandle();
-					parameters.push_back(std::pair<unsigned int, Value>(index, v));
-				}
-				else
-				{
-					parameters.push_back(std::pair<unsigned int, Value>(index, m_aValues[addr]));
 				}
 			}
 			break;
 
 			case OpCode::CALL:
 			{
-				uint8_t mode = (data >> 16) & 0xF;
-				uint16_t addr = data & 0xFFFF;
+				uint8_t mode = READ_BYTE();
+
+				uint8_t numParams = READ_BYTE();
+
+				uint8_t addrhi = READ_BYTE();
+				uint8_t addrlo = READ_BYTE();
+				uint16_t addr = ((addrhi << 8) | addrlo) & 0xFFFF;
+
+				RenderGraph::Parameters parameters;
+
+				for (int i = 0; i < numParams; ++i)
+				{
+					Value v = stack.top();
+					stack.pop();
+
+					parameters.push_back(std::pair<unsigned int, Value>(numParams - 1 - i, v));
+				}
 
 				if (mode == 0) // Pass
 				{
@@ -256,19 +406,16 @@ bool Instance::execute(void)
 			}
 			break;
 
+			case OpCode::HALT:
+			{
+				bRunning = false;
+			}
+			break;
+
 			default:
 			{
 				assert(false);
 			}
-		}
-
-		if (current >= m_aInstruction.size() - 1)
-		{
-			bRunning = false;
-		}
-		else
-		{
-			++current;
 		}
 	}
 
@@ -277,18 +424,52 @@ bool Instance::execute(void)
 
 /**
  * @brief Instance::getRenderTexture
+ * @param index
  * @return
  */
-unsigned int Instance::getRenderTexture(const char * name) const
+unsigned int Instance::getRenderTexture(unsigned int index) const
 {
-	auto it = m_mapTextures.find(name);
+	return m_aTextures[index]->getNativeHandle();
+}
 
-	if (it != m_mapTextures.end())
-	{
-		return m_aTextures[it->second]->getNativeHandle();
-	}
+/**
+ * @brief Instance::setConstant
+ * @param index
+ * @param value
+ */
+void Instance::setConstant(unsigned int index, unsigned int value)
+{
+	m_aValues[index].asUInt = value;
+}
 
-	return 0;
+/**
+ * @brief Instance::setConstant
+ * @param index
+ * @param value
+ */
+void Instance::setConstant(unsigned int index, int value)
+{
+	m_aValues[index].asInt = value;
+}
+
+/**
+ * @brief Instance::setConstant
+ * @param index
+ * @param value
+ */
+void Instance::setConstant(unsigned int index, float value)
+{
+	m_aValues[index].asFloat = value;
+}
+
+/**
+ * @brief Instance::setConstant
+ * @param index
+ * @param value
+ */
+void Instance::setConstant(unsigned int index, bool value)
+{
+	m_aValues[index].asBool = value;
 }
 
 /**
@@ -300,8 +481,8 @@ unsigned int Instance::getRenderTexture(const char * name) const
  * @param mapTextures
  * @param defaultFramebuffer
  */
-InstanceWithExternalFramebuffer::InstanceWithExternalFramebuffer(const std::vector<Instruction> & instructions, const std::vector<Pass*> & passes, const std::vector<Framebuffer*> & framebuffers, const std::vector<Texture*> & textures, const std::vector<Value> & values,  const std::map<std::string, unsigned int> & mapTextures, unsigned int /*GLuint*/ defaultFramebuffer)
-	: Instance (instructions, passes, framebuffers, textures, values, mapTextures),
+InstanceWithExternalFramebuffer::InstanceWithExternalFramebuffer(const std::vector<uint8_t> & bytecode, const std::vector<Pass*> & passes, const std::vector<Framebuffer*> & framebuffers, const std::vector<Texture*> & textures, const std::vector<Value> & values, unsigned int /*GLuint*/ defaultFramebuffer)
+	: Instance (bytecode, passes, framebuffers, textures, values),
 	  m_iDefaultFramebuffer(defaultFramebuffer)
 {
 	// ...
@@ -333,8 +514,8 @@ unsigned int InstanceWithExternalFramebuffer::getDefaultFramebuffer(void) const
  * @param mapTextures
  * @param pDefaultFramebuffer
  */
-InstanceWithInternalFramebuffer::InstanceWithInternalFramebuffer(const std::vector<Instruction> & instructions, const std::vector<Pass*> & passes, const std::vector<Framebuffer*> & framebuffers, const std::vector<Texture*> & textures, const std::vector<Value> & values,  const std::map<std::string, unsigned int> & mapTextures, Framebuffer * pDefaultFramebuffer)
-	: Instance (instructions, passes, framebuffers, textures, values, mapTextures),
+InstanceWithInternalFramebuffer::InstanceWithInternalFramebuffer(const std::vector<uint8_t> & bytecode, const std::vector<Pass*> & passes, const std::vector<Framebuffer*> & framebuffers, const std::vector<Texture*> & textures, const std::vector<Value> & values, Framebuffer * pDefaultFramebuffer)
+	: Instance (bytecode, passes, framebuffers, textures, values),
 	  m_pDefaultFramebuffer(pDefaultFramebuffer)
 {
 	assert(nullptr != pDefaultFramebuffer);

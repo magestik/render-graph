@@ -1,8 +1,6 @@
 #pragma once
 
 #include <vector>
-#include <map>
-#include <string>
 
 #include "VM.h"
 
@@ -18,14 +16,19 @@ class Instance
 {
 public:
 
-	Instance(const std::vector<Instruction> & instructions, const std::vector<Pass*> & passes, const std::vector<Framebuffer*> & framebuffers, const std::vector<Texture*> & textures, const std::vector<Value> & values, const std::map<std::string, unsigned int> & mapTextures);
+	Instance(const std::vector<uint8_t> & bytecode, const std::vector<Pass*> & passes, const std::vector<Framebuffer*> & framebuffers, const std::vector<Texture*> & textures, const std::vector<Value> & values);
 	virtual ~Instance(void);
 
 	bool resize(unsigned int width, unsigned int height);
 
 	bool execute(void);
 
-	unsigned int getRenderTexture(const char * name) const;
+	unsigned int getRenderTexture(unsigned int index) const;
+
+	void setConstant(unsigned int index, unsigned int value);
+	void setConstant(unsigned int index, int value);
+	void setConstant(unsigned int index, float value);
+	void setConstant(unsigned int index, bool value);
 
 	virtual unsigned int getDefaultFramebuffer(void) const = 0;
 
@@ -36,16 +39,14 @@ private:
 	std::vector<Framebuffer*> m_aFramebuffers;
 	std::vector<Pass*> m_aPass;
 
-	std::vector<Instruction> m_aInstruction;
-
-	std::map<std::string, unsigned int> m_mapTextures; // TODO : remove this
+	std::vector<uint8_t> m_bytecode;
 };
 
 class InstanceWithExternalFramebuffer : public Instance
 {
 public:
 
-	InstanceWithExternalFramebuffer(const std::vector<Instruction> & instructions, const std::vector<Pass*> & passes, const std::vector<Framebuffer*> & framebuffers, const std::vector<Texture*> & textures, const std::vector<Value> & values, const std::map<std::string, unsigned int> & mapTextures, unsigned int defaultFramebuffer);
+	InstanceWithExternalFramebuffer(const std::vector<uint8_t> & bytecode, const std::vector<Pass*> & passes, const std::vector<Framebuffer*> & framebuffers, const std::vector<Texture*> & textures, const std::vector<Value> & values, unsigned int defaultFramebuffer);
 	virtual ~InstanceWithExternalFramebuffer(void) override;
 
 	virtual unsigned int getDefaultFramebuffer(void) const override;
@@ -59,7 +60,7 @@ class InstanceWithInternalFramebuffer : public Instance
 {
 public:
 
-	InstanceWithInternalFramebuffer(const std::vector<Instruction> & instructions, const std::vector<Pass*> & passes, const std::vector<Framebuffer*> & framebuffers, const std::vector<Texture*> & textures, const std::vector<Value> & values, const std::map<std::string, unsigned int> & mapTextures, Framebuffer * pDefaultFramebuffer);
+	InstanceWithInternalFramebuffer(const std::vector<uint8_t> & bytecode, const std::vector<Pass*> & passes, const std::vector<Framebuffer*> & framebuffers, const std::vector<Texture*> & textures, const std::vector<Value> & values, Framebuffer * pDefaultFramebuffer);
 	virtual ~InstanceWithInternalFramebuffer(void) override;
 
 	virtual unsigned int getDefaultFramebuffer(void) const override;
