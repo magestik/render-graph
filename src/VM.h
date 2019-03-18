@@ -21,8 +21,15 @@ enum class OpCode : uint8_t
 	MUL,
 	DIV,
 
+	// Comparison
+	EQ,
+	NEQ,
+	GT,
+	GTE,
+	LT,
+	LTE,
+
 	// Branch
-	CMP,
 	JMP,
 
 	// Functions

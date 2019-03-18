@@ -282,7 +282,7 @@ bool Instance::execute(void)
 			}
 			break;
 
-			case OpCode::CMP:
+			case OpCode::EQ:
 			{
 				uint8_t mode = READ_BYTE();
 
@@ -295,19 +295,174 @@ bool Instance::execute(void)
 				if (mode == 0) // unsigned int
 				{
 					Value result;
-					result.asUInt = v2.asUInt - v1.asUInt;
+					result.asBool = (v1.asUInt == v2.asUInt);
 					stack.push(result);
 				}
 				else if (mode == 1) // singed int
 				{
 					Value result;
-					result.asInt = v2.asInt - v1.asInt;
+					result.asBool = (v1.asInt == v2.asInt);
 					stack.push(result);
 				}
 				else if (mode == 2) // float
 				{
 					Value result;
-					result.asFloat = v2.asFloat - v1.asFloat;
+					result.asBool = (v1.asFloat == v2.asFloat);
+					stack.push(result);
+				}
+			}
+			break;
+
+			case OpCode::NEQ:
+			{
+				uint8_t mode = READ_BYTE();
+
+				Value v2 = stack.top();
+				stack.pop();
+
+				Value v1 = stack.top();
+				stack.pop();
+
+				if (mode == 0) // unsigned int
+				{
+					Value result;
+					result.asBool = (v1.asUInt != v2.asUInt);
+					stack.push(result);
+				}
+				else if (mode == 1) // singed int
+				{
+					Value result;
+					result.asBool = (v1.asInt != v2.asInt);
+					stack.push(result);
+				}
+				else if (mode == 2) // float
+				{
+					Value result;
+					result.asBool = (v1.asFloat != v2.asFloat);
+					stack.push(result);
+				}
+			}
+			break;
+
+			case OpCode::GT:
+			{
+				uint8_t mode = READ_BYTE();
+
+				Value v2 = stack.top();
+				stack.pop();
+
+				Value v1 = stack.top();
+				stack.pop();
+
+				if (mode == 0) // unsigned int
+				{
+					Value result;
+					result.asBool = (v1.asUInt > v2.asUInt);
+					stack.push(result);
+				}
+				else if (mode == 1) // singed int
+				{
+					Value result;
+					result.asBool = (v1.asInt > v2.asInt);
+					stack.push(result);
+				}
+				else if (mode == 2) // float
+				{
+					Value result;
+					result.asBool = (v1.asFloat > v2.asFloat);
+					stack.push(result);
+				}
+			}
+			break;
+
+			case OpCode::GTE:
+			{
+				uint8_t mode = READ_BYTE();
+
+				Value v2 = stack.top();
+				stack.pop();
+
+				Value v1 = stack.top();
+				stack.pop();
+
+				if (mode == 0) // unsigned int
+				{
+					Value result;
+					result.asBool = (v1.asUInt >= v2.asUInt);
+					stack.push(result);
+				}
+				else if (mode == 1) // singed int
+				{
+					Value result;
+					result.asBool = (v1.asInt >= v2.asInt);
+					stack.push(result);
+				}
+				else if (mode == 2) // float
+				{
+					Value result;
+					result.asBool = (v1.asFloat >= v2.asFloat);
+					stack.push(result);
+				}
+			}
+			break;
+
+			case OpCode::LT:
+			{
+				uint8_t mode = READ_BYTE();
+
+				Value v2 = stack.top();
+				stack.pop();
+
+				Value v1 = stack.top();
+				stack.pop();
+
+				if (mode == 0) // unsigned int
+				{
+					Value result;
+					result.asBool = (v1.asUInt < v2.asUInt);
+					stack.push(result);
+				}
+				else if (mode == 1) // singed int
+				{
+					Value result;
+					result.asBool = (v1.asInt < v2.asInt);
+					stack.push(result);
+				}
+				else if (mode == 2) // float
+				{
+					Value result;
+					result.asBool = (v1.asFloat < v2.asFloat);
+					stack.push(result);
+				}
+			}
+			break;
+
+			case OpCode::LTE:
+			{
+				uint8_t mode = READ_BYTE();
+
+				Value v2 = stack.top();
+				stack.pop();
+
+				Value v1 = stack.top();
+				stack.pop();
+
+				if (mode == 0) // unsigned int
+				{
+					Value result;
+					result.asBool = (v1.asUInt <= v2.asUInt);
+					stack.push(result);
+				}
+				else if (mode == 1) // singed int
+				{
+					Value result;
+					result.asBool = (v1.asInt <= v2.asInt);
+					stack.push(result);
+				}
+				else if (mode == 2) // float
+				{
+					Value result;
+					result.asBool = (v1.asFloat <= v2.asFloat);
 					stack.push(result);
 				}
 			}
@@ -315,8 +470,6 @@ bool Instance::execute(void)
 
 			case OpCode::JMP:
 			{
-				uint8_t mode = READ_BYTE();
-
 				uint8_t addrhi = READ_BYTE();
 				uint8_t addrlo = READ_BYTE();
 				uint16_t addr = ((addrhi << 8) | addrlo) & 0xFFFF;
@@ -324,47 +477,9 @@ bool Instance::execute(void)
 				Value v = stack.top();
 				stack.pop();
 
-				if (mode == 0) // JNE
+				if (v.asBool == true)
 				{
-					if (v.asInt != 0)
-					{
-						current = m_bytecode.data() + addr;
-					}
-				}
-				else if (mode == 1) // JE
-				{
-					if (v.asInt == 0)
-					{
-						current = m_bytecode.data() + addr;
-					}
-				}
-				else if (mode == 2) // JG
-				{
-					if (v.asInt > 0)
-					{
-						current = m_bytecode.data() + addr;
-					}
-				}
-				else if (mode == 3) // JGE
-				{
-					if (v.asInt >= 0)
-					{
-						current = m_bytecode.data() + addr;
-					}
-				}
-				else if (mode == 4) // JL
-				{
-					if (v.asInt < 0)
-					{
-						current = m_bytecode.data() + addr;
-					}
-				}
-				else if (mode == 3) // JLE
-				{
-					if (v.asInt <= 0)
-					{
-						current = m_bytecode.data() + addr;
-					}
+					current = m_bytecode.data() + addr;
 				}
 			}
 			break;

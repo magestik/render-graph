@@ -85,6 +85,85 @@ static bool ApplyTopologicalOrdering(const Graph & graph, std::vector<Node*> & L
 	return(true);
 }
 
+static const char * INSTRUCTION_NAMES [] =
+{
+	"NOP",
+	"PUSH",
+	"POP",
+	"ADD",
+	"SUB",
+	"MUL",
+	"DIV",
+	"EQ",
+	"NEQ",
+	"GT",
+	"GTE",
+	"LT",
+	"LTE",
+	"JMP",
+	"CALL",
+	"HALT"
+};
+
+static inline void genOperatorBytecode(RenderGraph::OpCode opcode, const Graph & graph, Node * node, const std::map<std::string, unsigned int> & mapValues, std::vector<uint8_t> & bytecode)
+{
+	uint16_t parameters [2];
+
+	std::vector<Edge*> inEdges;
+	graph.getEdgeTo(node, inEdges);
+
+	for (Edge * edge : inEdges)
+	{
+		Node * source = edge->getSource();
+
+		const std::string & strId = source->getId();
+
+		const std::string & target_id = edge->getMetaData("target_id");
+		int paramIndex = atoi(target_id.c_str());
+		assert(paramIndex < UINT8_MAX);
+
+		assert(source->getType() != "present" && source->getType() != "pass" && source->getType() != "texture");
+		{
+			auto it = mapValues.find(strId);
+
+			if (it != mapValues.end())
+			{
+				unsigned int index = it->second;
+				uint16_t addr = (0 << 15) | (index & 0x7FFF);
+				parameters[paramIndex] = addr;
+			}
+		}
+	}
+
+	for (int i = 0; i < 2; ++i)
+	{
+		bytecode.push_back(uint8_t(RenderGraph::OpCode::PUSH));
+		bytecode.push_back(uint8_t((parameters[i] >> 8) & 0xFF));
+		bytecode.push_back(uint8_t((parameters[i]) & 0xFF));
+
+		printf("PUSH %d\n", parameters[i]);
+	}
+
+	bytecode.push_back(uint8_t(opcode));
+	bytecode.push_back(uint8_t(2)); // float
+
+	printf("%s (float)\n", INSTRUCTION_NAMES[uint8_t(opcode)]);
+
+	auto it = mapValues.find(node->getId());
+
+	if (it != mapValues.end())
+	{
+		unsigned int index = it->second;
+		uint16_t addr = (index & 0xFFFF);
+
+		bytecode.push_back(uint8_t(RenderGraph::OpCode::POP));
+		bytecode.push_back(uint8_t((addr >> 8) & 0xFF));
+		bytecode.push_back(uint8_t((addr) & 0xFF));
+
+		printf("POP %d\n", addr);
+	}
+}
+
 namespace RenderGraph
 {
 
@@ -216,6 +295,30 @@ Instance * Factory::createInstanceFromGraph(const Graph & graph, std::map<std::s
 			aNodesOperator.push_back(node);
 		}
 		else if (node->getType() == "division")
+		{
+			aNodesOperator.push_back(node);
+		}
+		else if (node->getType() == "equal_to")
+		{
+			aNodesOperator.push_back(node);
+		}
+		else if (node->getType() == "not_equal_to")
+		{
+			aNodesOperator.push_back(node);
+		}
+		else if (node->getType() == "greater_than")
+		{
+			aNodesOperator.push_back(node);
+		}
+		else if (node->getType() == "greater_than_or_equal_to")
+		{
+			aNodesOperator.push_back(node);
+		}
+		else if (node->getType() == "less_than")
+		{
+			aNodesOperator.push_back(node);
+		}
+		else if (node->getType() == "less_than_or_equal_to")
 		{
 			aNodesOperator.push_back(node);
 		}
@@ -410,235 +513,43 @@ Instance * Factory::createInstanceFromGraph(const Graph & graph, std::map<std::s
 
 		if (node->getType() == "addition")
 		{
-			uint16_t parameters [2];
-
-			std::vector<Edge*> inEdges;
-			graph.getEdgeTo(node, inEdges);
-
-			for (Edge * edge : inEdges)
-			{
-				Node * source = edge->getSource();
-
-				const std::string & strId = source->getId();
-
-				const std::string & target_id = edge->getMetaData("target_id");
-				int paramIndex = atoi(target_id.c_str());
-				assert(paramIndex < UINT8_MAX);
-
-				assert(source->getType() != "present" && source->getType() != "pass" && source->getType() != "texture");
-				{
-					auto it = mapValues.find(strId);
-
-					if (it != mapValues.end())
-					{
-						unsigned int index = it->second;
-						uint16_t addr = (0 << 15) | (index & 0x7FFF);
-						parameters[paramIndex] = addr;
-					}
-				}
-			}
-
-			for (int i = 0; i < 2; ++i)
-			{
-				bytecode.push_back(uint8_t(OpCode::PUSH));
-				bytecode.push_back(uint8_t((parameters[i] >> 8) & 0xFF));
-				bytecode.push_back(uint8_t((parameters[i]) & 0xFF));
-
-				printf("PUSH %d\n", parameters[i]);
-			}
-
-			bytecode.push_back(uint8_t(OpCode::ADD));
-			bytecode.push_back(uint8_t(2)); // float
-
-			printf("ADD (float)\n");
-
-			auto it = mapValues.find(strCurrentNodeId);
-
-			if (it != mapValues.end())
-			{
-				unsigned int index = it->second;
-				uint16_t addr = (index & 0xFFFF);
-
-				bytecode.push_back(uint8_t(OpCode::POP));
-				bytecode.push_back(uint8_t((addr >> 8) & 0xFF));
-				bytecode.push_back(uint8_t((addr) & 0xFF));
-
-				printf("POP %d\n", addr);
-			}
+			genOperatorBytecode(OpCode::ADD, graph, node, mapValues, bytecode);
 		}
 		else if (node->getType() == "subtraction")
 		{
-			uint16_t parameters [2];
-
-			std::vector<Edge*> inEdges;
-			graph.getEdgeTo(node, inEdges);
-
-			for (Edge * edge : inEdges)
-			{
-				Node * source = edge->getSource();
-
-				const std::string & strId = source->getId();
-
-				const std::string & target_id = edge->getMetaData("target_id");
-				int paramIndex = atoi(target_id.c_str());
-				assert(paramIndex < UINT8_MAX);
-
-				assert(source->getType() != "present" && source->getType() != "pass" && source->getType() != "texture");
-				{
-					auto it = mapValues.find(strId);
-
-					if (it != mapValues.end())
-					{
-						unsigned int index = it->second;
-						uint16_t addr = (0 << 15) | (index & 0x7FFF);
-						parameters[paramIndex] = addr;
-					}
-				}
-			}
-
-			for (int i = 0; i < 2; ++i)
-			{
-				bytecode.push_back(uint8_t(OpCode::PUSH));
-				bytecode.push_back(uint8_t((parameters[i] >> 8) & 0xFF));
-				bytecode.push_back(uint8_t((parameters[i]) & 0xFF));
-
-				printf("PUSH %d\n", parameters[i]);
-			}
-
-			bytecode.push_back(uint8_t(OpCode::SUB));
-			bytecode.push_back(uint8_t(2)); // float
-
-			printf("SUB (float)\n");
-
-			auto it = mapValues.find(strCurrentNodeId);
-
-			if (it != mapValues.end())
-			{
-				unsigned int index = it->second;
-				uint16_t addr = (index & 0xFFFF);
-
-				bytecode.push_back(uint8_t(OpCode::POP));
-				bytecode.push_back(uint8_t((addr >> 8) & 0xFF));
-				bytecode.push_back(uint8_t((addr) & 0xFF));
-
-				printf("POP %d\n", addr);
-			}
+			genOperatorBytecode(OpCode::SUB, graph, node, mapValues, bytecode);
 		}
 		else if (node->getType() == "multiplication")
 		{
-			uint16_t parameters [2];
-
-			std::vector<Edge*> inEdges;
-			graph.getEdgeTo(node, inEdges);
-
-			for (Edge * edge : inEdges)
-			{
-				Node * source = edge->getSource();
-
-				const std::string & strId = source->getId();
-
-				const std::string & target_id = edge->getMetaData("target_id");
-				int paramIndex = atoi(target_id.c_str());
-				assert(paramIndex < UINT8_MAX);
-
-				assert(source->getType() != "present" && source->getType() != "pass" && source->getType() != "texture");
-				{
-					auto it = mapValues.find(strId);
-
-					if (it != mapValues.end())
-					{
-						unsigned int index = it->second;
-						uint16_t addr = (0 << 15) | (index & 0x7FFF);
-						parameters[paramIndex] = addr;
-					}
-				}
-			}
-
-			for (int i = 0; i < 2; ++i)
-			{
-				bytecode.push_back(uint8_t(OpCode::PUSH));
-				bytecode.push_back(uint8_t((parameters[i] >> 8) & 0xFF));
-				bytecode.push_back(uint8_t((parameters[i]) & 0xFF));
-
-				printf("PUSH %d\n", parameters[i]);
-			}
-
-			bytecode.push_back(uint8_t(OpCode::MUL));
-			bytecode.push_back(uint8_t(2)); // float
-
-			printf("MUL (float)\n");
-
-			auto it = mapValues.find(strCurrentNodeId);
-
-			if (it != mapValues.end())
-			{
-				unsigned int index = it->second;
-				uint16_t addr = (index & 0xFFFF);
-
-				bytecode.push_back(uint8_t(OpCode::POP));
-				bytecode.push_back(uint8_t((addr >> 8) & 0xFF));
-				bytecode.push_back(uint8_t((addr) & 0xFF));
-
-				printf("POP %d\n", addr);
-			}
+			genOperatorBytecode(OpCode::MUL, graph, node, mapValues, bytecode);
 		}
 		else if (node->getType() == "division")
 		{
-			uint16_t parameters [2];
-
-			std::vector<Edge*> inEdges;
-			graph.getEdgeTo(node, inEdges);
-
-			for (Edge * edge : inEdges)
-			{
-				Node * source = edge->getSource();
-
-				const std::string & strId = source->getId();
-
-				const std::string & target_id = edge->getMetaData("target_id");
-				int paramIndex = atoi(target_id.c_str());
-				assert(paramIndex < UINT8_MAX);
-
-				assert(source->getType() != "present" && source->getType() != "pass" && source->getType() != "texture");
-				{
-					auto it = mapValues.find(strId);
-
-					if (it != mapValues.end())
-					{
-						unsigned int index = it->second;
-						uint16_t addr = (0 << 15) | (index & 0x7FFF);
-						parameters[paramIndex] = addr;
-					}
-				}
-			}
-
-			for (int i = 0; i < 2; ++i)
-			{
-				bytecode.push_back(uint8_t(OpCode::PUSH));
-				bytecode.push_back(uint8_t((parameters[i] >> 8) & 0xFF));
-				bytecode.push_back(uint8_t((parameters[i]) & 0xFF));
-
-				printf("PUSH %d\n", parameters[i]);
-			}
-
-			bytecode.push_back(uint8_t(OpCode::DIV));
-			bytecode.push_back(uint8_t(2)); // float
-
-			printf("DIV (float)\n");
-
-			auto it = mapValues.find(strCurrentNodeId);
-
-			if (it != mapValues.end())
-			{
-				unsigned int index = it->second;
-				uint16_t addr = (index & 0xFFFF);
-
-				bytecode.push_back(uint8_t(OpCode::POP));
-				bytecode.push_back(uint8_t((addr >> 8) & 0xFF));
-				bytecode.push_back(uint8_t((addr) & 0xFF));
-
-				printf("POP %d\n", addr);
-			}
+			genOperatorBytecode(OpCode::DIV, graph, node, mapValues, bytecode);
+		}
+		else if (node->getType() == "equal")
+		{
+			genOperatorBytecode(OpCode::EQ, graph, node, mapValues, bytecode);
+		}
+		else if (node->getType() == "not_equal")
+		{
+			genOperatorBytecode(OpCode::NEQ, graph, node, mapValues, bytecode);
+		}
+		else if (node->getType() == "greater_than")
+		{
+			genOperatorBytecode(OpCode::GT, graph, node, mapValues, bytecode);
+		}
+		else if (node->getType() == "greater_than_or_equal")
+		{
+			genOperatorBytecode(OpCode::GTE, graph, node, mapValues, bytecode);
+		}
+		else if (node->getType() == "less_than")
+		{
+			genOperatorBytecode(OpCode::LT, graph, node, mapValues, bytecode);
+		}
+		else if (node->getType() == "less_than_or_equal")
+		{
+			genOperatorBytecode(OpCode::LTE, graph, node, mapValues, bytecode);
 		}
 		else if (node->getType() == "pass")
 		{
@@ -724,8 +635,6 @@ Instance * Factory::createInstanceFromGraph(const Graph & graph, std::map<std::s
 		}
 	}
 
-	fflush(stdout);
-
 	if (bytecode.size() == 0)
 	{
 		return nullptr;
@@ -733,6 +642,8 @@ Instance * Factory::createInstanceFromGraph(const Graph & graph, std::map<std::s
 
 	bytecode.push_back(uint8_t(OpCode::HALT));
 	printf("HALT\n");
+
+	fflush(stdout);
 
 	Instance * pRenderGraph = nullptr;
 
