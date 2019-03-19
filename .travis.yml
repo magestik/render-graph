@@ -3,7 +3,12 @@ language: cpp
 matrix:
   include:
   - os: linux
-    compiler: gcc clang
+    compiler: gcc
+    before_install:
+    - sudo apt-get update -qq -y
+    - sudo apt-get install libjansson-dev libsdl2-dev
+  - os: linux
+    compiler: clang
     before_install:
     - sudo apt-get update -qq -y
     - sudo apt-get install libjansson-dev libsdl2-dev
