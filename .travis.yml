@@ -1,6 +1,10 @@
 language: cpp
 
-dist: trusty osx
+os:
+  - linux
+  - osx
+  
+dist: trusty
 
 compiler:  
     - gcc
