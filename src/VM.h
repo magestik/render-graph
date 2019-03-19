@@ -15,19 +15,28 @@ enum class OpCode : uint8_t
 	PUSH,
 	POP,
 
-	// Arithmetic
+	// Arithmetic operators
 	ADD,
 	SUB,
 	MUL,
 	DIV,
 
-	// Comparison
+	NEG,
+	ABS,
+	FMA,
+
+	// Comparison operators
 	EQ,
 	NEQ,
 	GT,
 	GTE,
 	LT,
 	LTE,
+
+	// Logical operators
+	NOT,
+	AND,
+	OR,
 
 	// Branch
 	JMP,

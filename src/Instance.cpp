@@ -174,7 +174,7 @@ bool Instance::execute(void)
 					result.asUInt = v1.asUInt + v2.asUInt;
 					stack.push(result);
 				}
-				else if (mode == 1) // singed int
+				else if (mode == 1) // signed int
 				{
 					Value result;
 					result.asInt = v1.asInt + v2.asInt;
@@ -205,7 +205,7 @@ bool Instance::execute(void)
 					result.asUInt = v1.asUInt - v2.asUInt;
 					stack.push(result);
 				}
-				else if (mode == 1) // singed int
+				else if (mode == 1) // signed int
 				{
 					Value result;
 					result.asInt = v1.asInt - v2.asInt;
@@ -236,7 +236,7 @@ bool Instance::execute(void)
 					result.asUInt = v1.asUInt * v2.asUInt;
 					stack.push(result);
 				}
-				else if (mode == 1) // singed int
+				else if (mode == 1) // signed int
 				{
 					Value result;
 					result.asInt = v1.asInt * v2.asInt;
@@ -267,7 +267,7 @@ bool Instance::execute(void)
 					result.asUInt = v1.asUInt / v2.asUInt;
 					stack.push(result);
 				}
-				else if (mode == 1) // singed int
+				else if (mode == 1) // signed int
 				{
 					Value result;
 					result.asInt = v1.asInt / v2.asInt;
@@ -277,6 +277,96 @@ bool Instance::execute(void)
 				{
 					Value result;
 					result.asFloat = v1.asFloat / v2.asFloat;
+					stack.push(result);
+				}
+			}
+			break;
+
+			case OpCode::ABS:
+			{
+				uint8_t mode = READ_BYTE();
+
+				Value v1 = stack.top();
+				stack.pop();
+
+				if (mode == 0) // unsigned int
+				{
+					Value result;
+					result.asUInt = v1.asUInt; // unsigned int >= 0
+					stack.push(result);
+				}
+				else if (mode == 1) // signed int
+				{
+					Value result;
+					result.asInt = (v1.asInt >= 0) ? v1.asInt : -v1.asInt;
+					stack.push(result);
+				}
+				else if (mode == 2) // float
+				{
+					Value result;
+					result.asFloat = (v1.asFloat >= 0.0f) ? v1.asFloat : -v1.asFloat;
+					stack.push(result);
+				}
+			}
+			break;
+
+			case OpCode::NEG:
+			{
+				uint8_t mode = READ_BYTE();
+
+				Value v1 = stack.top();
+				stack.pop();
+
+				if (mode == 0) // unsigned int
+				{
+					Value result;
+					result.asUInt = -v1.asUInt;
+					stack.push(result);
+				}
+				else if (mode == 1) // signed int
+				{
+					Value result;
+					result.asInt = -v1.asInt;
+					stack.push(result);
+				}
+				else if (mode == 2) // float
+				{
+					Value result;
+					result.asFloat = -v1.asFloat;
+					stack.push(result);
+				}
+			}
+			break;
+
+			case OpCode::FMA:
+			{
+				uint8_t mode = READ_BYTE();
+
+				Value v3 = stack.top();
+				stack.pop();
+
+				Value v2 = stack.top();
+				stack.pop();
+
+				Value v1 = stack.top();
+				stack.pop();
+
+				if (mode == 0) // unsigned int
+				{
+					Value result;
+					result.asUInt = v1.asUInt + v2.asUInt * v3.asUInt;
+					stack.push(result);
+				}
+				else if (mode == 1) // signed int
+				{
+					Value result;
+					result.asInt = v1.asInt + v2.asInt * v3.asInt;
+					stack.push(result);
+				}
+				else if (mode == 2) // float
+				{
+					Value result;
+					result.asFloat = v1.asFloat + v2.asFloat * v3.asFloat;
 					stack.push(result);
 				}
 			}
@@ -298,7 +388,7 @@ bool Instance::execute(void)
 					result.asBool = (v1.asUInt == v2.asUInt);
 					stack.push(result);
 				}
-				else if (mode == 1) // singed int
+				else if (mode == 1) // signed int
 				{
 					Value result;
 					result.asBool = (v1.asInt == v2.asInt);
@@ -329,7 +419,7 @@ bool Instance::execute(void)
 					result.asBool = (v1.asUInt != v2.asUInt);
 					stack.push(result);
 				}
-				else if (mode == 1) // singed int
+				else if (mode == 1) // signed int
 				{
 					Value result;
 					result.asBool = (v1.asInt != v2.asInt);
@@ -360,7 +450,7 @@ bool Instance::execute(void)
 					result.asBool = (v1.asUInt > v2.asUInt);
 					stack.push(result);
 				}
-				else if (mode == 1) // singed int
+				else if (mode == 1) // signed int
 				{
 					Value result;
 					result.asBool = (v1.asInt > v2.asInt);
@@ -391,7 +481,7 @@ bool Instance::execute(void)
 					result.asBool = (v1.asUInt >= v2.asUInt);
 					stack.push(result);
 				}
-				else if (mode == 1) // singed int
+				else if (mode == 1) // signed int
 				{
 					Value result;
 					result.asBool = (v1.asInt >= v2.asInt);
@@ -422,7 +512,7 @@ bool Instance::execute(void)
 					result.asBool = (v1.asUInt < v2.asUInt);
 					stack.push(result);
 				}
-				else if (mode == 1) // singed int
+				else if (mode == 1) // signed int
 				{
 					Value result;
 					result.asBool = (v1.asInt < v2.asInt);
@@ -453,7 +543,7 @@ bool Instance::execute(void)
 					result.asBool = (v1.asUInt <= v2.asUInt);
 					stack.push(result);
 				}
-				else if (mode == 1) // singed int
+				else if (mode == 1) // signed int
 				{
 					Value result;
 					result.asBool = (v1.asInt <= v2.asInt);
@@ -465,6 +555,45 @@ bool Instance::execute(void)
 					result.asBool = (v1.asFloat <= v2.asFloat);
 					stack.push(result);
 				}
+			}
+			break;
+
+			case OpCode::NOT:
+			{
+				Value v1 = stack.top();
+				stack.pop();
+
+				Value result;
+				result.asBool = !v1.asBool;
+				stack.push(result);
+			}
+			break;
+
+			case OpCode::AND:
+			{
+				Value v2 = stack.top();
+				stack.pop();
+
+				Value v1 = stack.top();
+				stack.pop();
+
+				Value result;
+				result.asBool = v1.asBool && v2.asBool;
+				stack.push(result);
+			}
+			break;
+
+			case OpCode::OR:
+			{
+				Value v2 = stack.top();
+				stack.pop();
+
+				Value v1 = stack.top();
+				stack.pop();
+
+				Value result;
+				result.asBool = v1.asBool || v2.asBool;
+				stack.push(result);
 			}
 			break;
 
