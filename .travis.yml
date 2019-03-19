@@ -11,9 +11,15 @@ matrix:
     
 addons:
   apt:
-    packages: libegl1-mesa-dev libgles2-mesa-dev libjansson-dev libsdl2-dev
+    packages:
+      - libegl1-mesa-dev
+      - libgles2-mesa-dev
+      - libjansson-dev
+      - libsdl2-dev
   homebrew:
-    packages: jansson sdl2
+    packages:
+      - jansson
+      - sdl2
     
 before_script:  
     - mkdir build
