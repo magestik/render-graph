@@ -18,8 +18,7 @@
 
 #include <algorithm>
 
-#define GL_GLEXT_PROTOTYPES 1
-#include <GL/glcorearb.h>
+#include "OpenGL.h"
 
 static void createGraphAlias(const Graph & graph, Graph & outGraph)
 {
