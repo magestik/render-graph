@@ -4,23 +4,17 @@ matrix:
   include:
   - os: linux
     compiler: gcc
-    before_install:
-    - sudo apt-get update -qq -y
-    - sudo apt-get install libegl1-mesa-dev libgles2-mesa-dev
-    - sudo apt-get install libjansson-dev libsdl2-dev
   - os: linux
     compiler: clang
-    before_install:
-    - sudo apt-get update -qq -y
-    - sudo apt-get install libegl1-mesa-dev libgles2-mesa-dev
-    - sudo apt-get install libjansson-dev libsdl2-dev
   - os: osx
     compiler: clang
-    before_install:
-    - brew update
-    - brew install jansson
-    - brew install sdl2
-
+    
+addons:
+  apt:
+    packages: libegl1-mesa-dev libgles2-mesa-dev libjansson-dev libsdl2-dev
+  homebrew:
+    packages: jansson sdl2
+    
 before_script:  
     - mkdir build
     - cd build
