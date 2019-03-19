@@ -8,8 +8,6 @@
 
 #include "VM.h"
 
-#include "OpenGL.h"
-
 #include <assert.h>
 
 #include <stack>
