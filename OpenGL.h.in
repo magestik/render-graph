@@ -1,7 +1,18 @@
 
 #cmakedefine HAVE_GL_COREARB_H
+#cmakedefine HAVE_GL3_GL3_H
+#cmakedefine HAVE_GL_GL_H
+#cmakedefine HAVE_OPENGL_GL_H
 
-#ifdef HAVE_GL_COREARB_H
-#	define GL_GLEXT_PROTOTYPES 1
+#define GL_GLEXT_PROTOTYPES 1
+
+#if defined(HAVE_GL_COREARB_H)
 #	include <GL/glcorearb.h>
-#endif // HAVE_GL_COREARB_H
+#elif defined(HAVE_GL3_GL3_H)
+#	include <GL3/gl3.h>
+#elif defined(HAVE_GL_GL_H)
+#	include <GL/gl.h>
+#elif defined(HAVE_OPENGL_GL_H)
+#	include <OpenGL/gl.h>
+#endif
+
