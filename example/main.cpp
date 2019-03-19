@@ -2,9 +2,6 @@
 
 #include <SDL2/SDL.h>
 
-#define GL_GLEXT_PROTOTYPES 1
-#include <GL/glcorearb.h>
-
 #include "RenderGraph.h"
 
 #include "Graph.h"
@@ -91,7 +88,7 @@ int main(int argc, char** argv)
 
 	factory.registerPass("test", TestPassFactory);
 
-	RenderGraph::Instance * pRenderGraph = factory.createInstanceFromGraph(G, GLuint(0));
+	RenderGraph::Instance * pRenderGraph = factory.createInstanceFromGraph(G, 0u);
 
 	if (!pRenderGraph)
 	{
