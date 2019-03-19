@@ -27,6 +27,16 @@ if (ENABLE_ASAN)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address ")
 endif (ENABLE_ASAN)
 
+set(OpenGL_GL_PREFERENCE "GLVND")
+find_package(OpenGL REQUIRED)
+
+find_path(HAVE_GL_COREARB_H "GL/glcorearb.h" PATHS ${OPENGL_INCLUDE_DIR})
+find_path(HAVE_GL3_GL3_H "GL3/gl3.h" PATHS ${OPENGL_INCLUDE_DIR})
+find_path(HAVE_GL_GL_H "GL/gl.h" PATHS ${OPENGL_INCLUDE_DIR})
+find_path(HAVE_OPENGL_GL_H "OpenGL/gl.h" PATHS ${OPENGL_INCLUDE_DIR})
+
+configure_file(OpenGL.h.in OpenGL.h @ONLY)
+
 add_subdirectory(src)
 
 add_subdirectory(example)

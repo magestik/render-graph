@@ -105,12 +105,14 @@ static const char * INSTRUCTION_NAMES [] =
 	"HALT"
 };
 
-static inline void genOperatorBytecode(RenderGraph::OpCode opcode, const Graph & graph, Node * node, const std::map<std::string, unsigned int> & mapValues, std::vector<uint8_t> & bytecode)
+static inline void genOperatorBytecode(RenderGraph::OpCode opcode, unsigned int numParams, const Graph & graph, Node * node, const std::map<std::string, unsigned int> & mapValues, std::vector<uint8_t> & bytecode)
 {
-	uint16_t parameters [2];
+	uint16_t parameters [numParams];
 
 	std::vector<Edge*> inEdges;
 	graph.getEdgeTo(node, inEdges);
+
+	assert(inEdges.size() == numParams);
 
 	for (Edge * edge : inEdges)
 	{
@@ -135,7 +137,7 @@ static inline void genOperatorBytecode(RenderGraph::OpCode opcode, const Graph &
 		}
 	}
 
-	for (int i = 0; i < 2; ++i)
+	for (int i = 0; i < numParams; ++i)
 	{
 		bytecode.push_back(uint8_t(RenderGraph::OpCode::PUSH));
 		bytecode.push_back(uint8_t((parameters[i] >> 8) & 0xFF));
@@ -298,6 +300,14 @@ Instance * Factory::createInstanceFromGraph(const Graph & graph, std::map<std::s
 		{
 			aNodesOperator.push_back(node);
 		}
+		else if (node->getType() == "negation")
+		{
+			aNodesOperator.push_back(node);
+		}
+		else if (node->getType() == "absolute")
+		{
+			aNodesOperator.push_back(node);
+		}
 		else if (node->getType() == "equal_to")
 		{
 			aNodesOperator.push_back(node);
@@ -319,6 +329,18 @@ Instance * Factory::createInstanceFromGraph(const Graph & graph, std::map<std::s
 			aNodesOperator.push_back(node);
 		}
 		else if (node->getType() == "less_than_or_equal_to")
+		{
+			aNodesOperator.push_back(node);
+		}
+		else if (node->getType() == "not")
+		{
+			aNodesOperator.push_back(node);
+		}
+		else if (node->getType() == "and")
+		{
+			aNodesOperator.push_back(node);
+		}
+		else if (node->getType() == "or")
 		{
 			aNodesOperator.push_back(node);
 		}
@@ -513,43 +535,63 @@ Instance * Factory::createInstanceFromGraph(const Graph & graph, std::map<std::s
 
 		if (node->getType() == "addition")
 		{
-			genOperatorBytecode(OpCode::ADD, graph, node, mapValues, bytecode);
+			genOperatorBytecode(OpCode::ADD, 2, graph, node, mapValues, bytecode);
 		}
 		else if (node->getType() == "subtraction")
 		{
-			genOperatorBytecode(OpCode::SUB, graph, node, mapValues, bytecode);
+			genOperatorBytecode(OpCode::SUB, 2, graph, node, mapValues, bytecode);
 		}
 		else if (node->getType() == "multiplication")
 		{
-			genOperatorBytecode(OpCode::MUL, graph, node, mapValues, bytecode);
+			genOperatorBytecode(OpCode::MUL, 2, graph, node, mapValues, bytecode);
 		}
 		else if (node->getType() == "division")
 		{
-			genOperatorBytecode(OpCode::DIV, graph, node, mapValues, bytecode);
+			genOperatorBytecode(OpCode::DIV, 2, graph, node, mapValues, bytecode);
+		}
+		else if (node->getType() == "negation")
+		{
+			genOperatorBytecode(OpCode::NEG, 1, graph, node, mapValues, bytecode);
+		}
+		else if (node->getType() == "absolute")
+		{
+			genOperatorBytecode(OpCode::ABS, 1, graph, node, mapValues, bytecode);
 		}
 		else if (node->getType() == "equal")
 		{
-			genOperatorBytecode(OpCode::EQ, graph, node, mapValues, bytecode);
+			genOperatorBytecode(OpCode::EQ, 2, graph, node, mapValues, bytecode);
 		}
 		else if (node->getType() == "not_equal")
 		{
-			genOperatorBytecode(OpCode::NEQ, graph, node, mapValues, bytecode);
+			genOperatorBytecode(OpCode::NEQ, 2, graph, node, mapValues, bytecode);
 		}
 		else if (node->getType() == "greater_than")
 		{
-			genOperatorBytecode(OpCode::GT, graph, node, mapValues, bytecode);
+			genOperatorBytecode(OpCode::GT, 2, graph, node, mapValues, bytecode);
 		}
 		else if (node->getType() == "greater_than_or_equal")
 		{
-			genOperatorBytecode(OpCode::GTE, graph, node, mapValues, bytecode);
+			genOperatorBytecode(OpCode::GTE, 2, graph, node, mapValues, bytecode);
 		}
 		else if (node->getType() == "less_than")
 		{
-			genOperatorBytecode(OpCode::LT, graph, node, mapValues, bytecode);
+			genOperatorBytecode(OpCode::LT, 2, graph, node, mapValues, bytecode);
 		}
 		else if (node->getType() == "less_than_or_equal")
 		{
-			genOperatorBytecode(OpCode::LTE, graph, node, mapValues, bytecode);
+			genOperatorBytecode(OpCode::LTE, 2, graph, node, mapValues, bytecode);
+		}
+		else if (node->getType() == "not")
+		{
+			genOperatorBytecode(OpCode::NOT, 1, graph, node, mapValues, bytecode);
+		}
+		else if (node->getType() == "and")
+		{
+			genOperatorBytecode(OpCode::AND, 2, graph, node, mapValues, bytecode);
+		}
+		else if (node->getType() == "or")
+		{
+			genOperatorBytecode(OpCode::OR, 2, graph, node, mapValues, bytecode);
 		}
 		else if (node->getType() == "pass")
 		{

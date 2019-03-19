@@ -1,0 +1,7 @@
+
+#cmakedefine HAVE_GL_COREARB_H
+
+#ifdef HAVE_GL_COREARB_H
+#	define GL_GLEXT_PROTOTYPES 1
+#	include <GL/glcorearb.h>
+#endif // HAVE_GL_COREARB_H

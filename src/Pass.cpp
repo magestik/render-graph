@@ -2,8 +2,7 @@
 
 #include "Framebuffer.h"
 
-#define GL_GLEXT_PROTOTYPES 1
-#include <GL/glcorearb.h>
+#include "OpenGL.h"
 
 #include <assert.h>
 
