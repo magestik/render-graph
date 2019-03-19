@@ -6,11 +6,13 @@ matrix:
     compiler: gcc
     before_install:
     - sudo apt-get update -qq -y
+    - sudo apt-get install libegl1-mesa-dev libgles2-mesa-dev
     - sudo apt-get install libjansson-dev libsdl2-dev
   - os: linux
     compiler: clang
     before_install:
     - sudo apt-get update -qq -y
+    - sudo apt-get install libegl1-mesa-dev libgles2-mesa-dev
     - sudo apt-get install libjansson-dev libsdl2-dev
   - os: osx
     compiler: clang
