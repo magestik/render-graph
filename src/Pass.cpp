@@ -52,9 +52,30 @@ void Pass::release(void)
 }
 
 /**
+ * @brief Pass::execute
+ * @param parameters
+ */
+bool Pass::execute(Parameters & parameters)
+{
+	if (begin())
+	{
+		bool success = render(parameters);
+
+		if (!success)
+		{
+			return false;
+		}
+
+		return end();
+	}
+
+	return false;
+}
+
+/**
  * @brief Begin
  */
-void Pass::begin(void)
+bool Pass::begin(void)
 {
 	glBindFramebuffer(GL_FRAMEBUFFER, m_iFramebufferNativeHandle);
 
@@ -92,12 +113,16 @@ void Pass::begin(void)
 	{
 		// TODO : glInvalidateFramebuffer or glDiscardFramebufferEXT (or glClear on tile-based GPUs)
 	}
+
+	assert(glGetError() == GL_NO_ERROR);
+
+	return true;
 }
 
 /**
  * @brief End
  */
-void Pass::end(void)
+bool Pass::end(void)
 {
 	if (m_storeOp == ATTACHMENT_STORE_OP_DONT_CARE)
 	{
@@ -105,6 +130,10 @@ void Pass::end(void)
 	}
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	assert(glGetError() == GL_NO_ERROR);
+
+	return true;
 }
 
 }

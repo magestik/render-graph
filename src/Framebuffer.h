@@ -6,12 +6,13 @@ namespace RenderGraph
 {
 
 class Texture;
+class Pass;
 
 class Framebuffer
 {
 public:
 
-	Framebuffer(const std::vector<Texture*> & textures);
+	Framebuffer(const std::vector<Texture*> & textures, Pass * pass);
 	~Framebuffer(void);
 
 	bool resize(unsigned int width, unsigned int height);
@@ -27,6 +28,7 @@ public:
 private:
 
 	const std::vector<Texture*> textures;
+	Pass * pass;
 
 	unsigned int currentWidth;
 	unsigned int currentHeight;

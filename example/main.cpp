@@ -6,10 +6,12 @@
 
 #include "Graph.h"
 
+#include <assert.h>
+
 /**
  * @brief The TestPass class
  */
-class TestPass : public RenderGraph::Pass
+class TestPass final : public RenderGraph::Pass
 {
 public:
 
@@ -21,14 +23,10 @@ public:
 		m_fClearColorR = 1.0f;
 	}
 
-	virtual bool render(const RenderGraph::Parameters & parameters)
+	virtual bool render(RenderGraph::Parameters & parameters) override
 	{
+		assert(parameters.size() == 0);
 		return true;
-	}
-
-	virtual void setParameter(RenderGraph::Instance * pInstance, const char * name, const char * value)
-	{
-		// nothing here
 	}
 };
 
@@ -36,7 +34,7 @@ public:
  * @brief TestPassFactory
  * @return
  */
-RenderGraph::Pass * TestPassFactory(void)
+RenderGraph::Operation * TestPassFactory(void)
 {
 	return new TestPass;
 }
@@ -86,7 +84,7 @@ int main(int argc, char** argv)
 	// Create render graph instance
 	RenderGraph::Factory factory;
 
-	factory.registerPass("test", TestPassFactory);
+	factory.registerOperation("test", TestPassFactory);
 
 	RenderGraph::Instance * pRenderGraph = factory.createInstanceFromGraph(G, 0u);
 

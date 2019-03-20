@@ -2,7 +2,7 @@
 
 #include <inttypes.h>
 
-#include <vector>
+#include <stack>
 
 namespace RenderGraph
 {
@@ -20,6 +20,7 @@ enum class OpCode : uint8_t
 	SUB,
 	MUL,
 	DIV,
+	MOD,
 
 	NEG,
 	ABS,
@@ -40,6 +41,8 @@ enum class OpCode : uint8_t
 
 	// Branch
 	JMP,
+	JMPT,
+	JMPF,
 
 	// Functions
 	CALL,
@@ -56,14 +59,35 @@ union Value
 
 static_assert(sizeof (Value) == sizeof(uint32_t), "Value union does not have the expected size");
 
-class Parameters : public std::vector<std::pair<unsigned int, Value>>
+class Parameters
 {
+public:
 
-};
+	inline Parameters(std::stack<Value> & stack) : m_stack(stack)
+	{
+		// ...
+	}
 
-enum CallType
-{
-	PASS
+	inline Value pop()
+	{
+		Value v = m_stack.top();
+		m_stack.pop();
+		return v;
+	}
+
+	inline void push(const Value & v)
+	{
+		m_stack.push(v);
+	}
+
+	inline std::stack<Value>::size_type size() const
+	{
+		return m_stack.size();
+	}
+
+private:
+
+	std::stack<Value> & m_stack;
 };
 
 }

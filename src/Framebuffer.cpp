@@ -2,6 +2,8 @@
 
 #include "Texture.h"
 
+#include "Pass.h"
+
 #include "OpenGL.h"
 
 #include <assert.h>
@@ -13,7 +15,7 @@ namespace RenderGraph
  * @brief Constructor
  * @param textures
  */
-Framebuffer::Framebuffer(const std::vector<Texture*> & textures_) : textures(textures_), currentWidth(0), currentHeight(0)
+Framebuffer::Framebuffer(const std::vector<Texture*> & textures_, Pass * pass_) : textures(textures_), pass(pass_), currentWidth(0), currentHeight(0)
 {
 	framebufferId = 0;
 }
@@ -82,6 +84,8 @@ bool Framebuffer::resize(unsigned int width, unsigned int height)
 
 	currentWidth = width;
 	currentHeight = height;
+
+	pass->setFramebuffer(framebufferId, width, height);
 
 	return true;
 }

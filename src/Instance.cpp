@@ -8,9 +8,17 @@
 
 #include "VM.h"
 
+#include <math.h>
+
 #include <assert.h>
 
 #include <stack>
+
+#if defined(__GNUC__) || defined(__clang__)
+#	define LIKELY(condition) __builtin_expect(!!(condition), 1)
+#else
+#	define LIKELY(condition) condition
+#endif
 
 #define READ_BYTE() (*current++)
 
@@ -18,21 +26,21 @@ namespace RenderGraph
 {
 
 /**
- * @brief Default constructor
- * @param instructions
- * @param passes
+ * @brief Constructor
+ * @param bytecode
+ * @param operations
  * @param framebuffers
  * @param textures
- * @param mapTextures
+ * @param values
  */
-Instance::Instance(const std::vector<uint8_t> & bytecode, const std::vector<Pass*> & passes, const std::vector<Framebuffer*> & framebuffers, const std::vector<Texture*> & textures, const std::vector<Value> & values)
+Instance::Instance(const std::vector<uint8_t> & bytecode, const std::vector<Operation*> & operations, const std::vector<Framebuffer*> & framebuffers, const std::vector<Texture*> & textures, const std::vector<Value> & values)
 	: m_aValues(values),
 	  m_aTextures(textures),
 	  m_aFramebuffers(framebuffers),
-	  m_aPass(passes),
+	  m_aOperations(operations),
 	  m_bytecode(bytecode)
 {
-	assert(passes.size() == framebuffers.size());
+	// ...
 }
 
 /**
@@ -62,31 +70,7 @@ bool Instance::resize(unsigned int width, unsigned int height)
 	// Resize framebuffers
 	for (Framebuffer * framebuffer : m_aFramebuffers)
 	{
-		if (framebuffer != nullptr)
-		{
-			framebuffer->resize(width, height);
-		}
-	}
-
-	//
-	// Update passes
-	unsigned int count = m_aPass.size();
-
-	for (unsigned int i = 0; i < count; ++i)
-	{
-		Pass * pass = m_aPass[i];
-		assert(pass != nullptr);
-
-		Framebuffer * framebuffer = m_aFramebuffers[i];
-
-		if (framebuffer != nullptr)
-		{
-			pass->setFramebuffer(framebuffer->getNativeHandle(), width, height);
-		}
-		else
-		{
-			pass->setFramebuffer(getDefaultFramebuffer(), width, height);
-		}
+		framebuffer->resize(width, height);
 	}
 
 	return true;
@@ -274,6 +258,37 @@ bool Instance::execute(void)
 				{
 					Value result;
 					result.asFloat = v1.asFloat / v2.asFloat;
+					stack.push(result);
+				}
+			}
+			break;
+
+			case OpCode::MOD:
+			{
+				uint8_t mode = READ_BYTE();
+
+				Value v2 = stack.top();
+				stack.pop();
+
+				Value v1 = stack.top();
+				stack.pop();
+
+				if (mode == 0) // unsigned int
+				{
+					Value result;
+					result.asUInt = v1.asUInt % v2.asUInt;
+					stack.push(result);
+				}
+				else if (mode == 1) // signed int
+				{
+					Value result;
+					result.asInt = v1.asInt % v2.asInt;
+					stack.push(result);
+				}
+				else if (mode == 2) // float
+				{
+					Value result;
+					result.asFloat = fmodf(v1.asFloat, v2.asFloat);
 					stack.push(result);
 				}
 			}
@@ -600,6 +615,16 @@ bool Instance::execute(void)
 				uint8_t addrlo = READ_BYTE();
 				uint16_t addr = ((addrhi << 8) | addrlo) & 0xFFFF;
 
+				current = m_bytecode.data() + addr;
+			}
+			break;
+
+			case OpCode::JMPT:
+			{
+				uint8_t addrhi = READ_BYTE();
+				uint8_t addrlo = READ_BYTE();
+				uint16_t addr = ((addrhi << 8) | addrlo) & 0xFFFF;
+
 				Value v = stack.top();
 				stack.pop();
 
@@ -610,40 +635,39 @@ bool Instance::execute(void)
 			}
 			break;
 
-			case OpCode::CALL:
+			case OpCode::JMPF:
 			{
-				uint8_t mode = READ_BYTE();
-
-				uint8_t numParams = READ_BYTE();
-
 				uint8_t addrhi = READ_BYTE();
 				uint8_t addrlo = READ_BYTE();
 				uint16_t addr = ((addrhi << 8) | addrlo) & 0xFFFF;
 
-				RenderGraph::Parameters parameters;
+				Value v = stack.top();
+				stack.pop();
 
-				for (int i = 0; i < numParams; ++i)
+				if (v.asBool == false)
 				{
-					Value v = stack.top();
-					stack.pop();
-
-					parameters.push_back(std::pair<unsigned int, Value>(numParams - 1 - i, v));
+					current = m_bytecode.data() + addr;
 				}
+			}
+			break;
 
-				if (mode == 0) // Pass
+			case OpCode::CALL:
+			{
+				uint8_t addrhi = READ_BYTE();
+				uint8_t addrlo = READ_BYTE();
+				uint16_t addr = ((addrhi << 8) | addrlo) & 0xFFFF;
+
+				Operation * op = m_aOperations[addr];
+
+				if (LIKELY(op))
 				{
-					Pass * pass = m_aPass[addr];
-
-					pass->begin();
-					pass->render(parameters);
-					pass->end();
+					Parameters params(stack);
+					bRunning = op->execute(params);
 				}
 				else
 				{
-					assert(false);
+					bRunning = false; // exit
 				}
-
-				parameters.clear();
 			}
 			break;
 
@@ -715,15 +739,15 @@ void Instance::setConstant(unsigned int index, bool value)
 
 /**
  * @brief Constructor
- * @param instructions
- * @param passes
+ * @param bytecode
+ * @param operations
  * @param framebuffers
  * @param textures
- * @param mapTextures
+ * @param values
  * @param defaultFramebuffer
  */
-InstanceWithExternalFramebuffer::InstanceWithExternalFramebuffer(const std::vector<uint8_t> & bytecode, const std::vector<Pass*> & passes, const std::vector<Framebuffer*> & framebuffers, const std::vector<Texture*> & textures, const std::vector<Value> & values, unsigned int /*GLuint*/ defaultFramebuffer)
-	: Instance (bytecode, passes, framebuffers, textures, values),
+InstanceWithExternalFramebuffer::InstanceWithExternalFramebuffer(const std::vector<uint8_t> & bytecode, const std::vector<Operation*> & operations, const std::vector<Framebuffer*> & framebuffers, const std::vector<Texture*> & textures, const std::vector<Value> & values, unsigned int /*GLuint*/ defaultFramebuffer)
+	: Instance (bytecode, operations, framebuffers, textures, values),
 	  m_iDefaultFramebuffer(defaultFramebuffer)
 {
 	// ...
@@ -748,15 +772,15 @@ unsigned int InstanceWithExternalFramebuffer::getDefaultFramebuffer(void) const
 
 /**
  * @brief Constructor
- * @param instructions
- * @param passes
+ * @param bytecode
+ * @param operations
  * @param framebuffers
  * @param textures
- * @param mapTextures
+ * @param values
  * @param pDefaultFramebuffer
  */
-InstanceWithInternalFramebuffer::InstanceWithInternalFramebuffer(const std::vector<uint8_t> & bytecode, const std::vector<Pass*> & passes, const std::vector<Framebuffer*> & framebuffers, const std::vector<Texture*> & textures, const std::vector<Value> & values, Framebuffer * pDefaultFramebuffer)
-	: Instance (bytecode, passes, framebuffers, textures, values),
+InstanceWithInternalFramebuffer::InstanceWithInternalFramebuffer(const std::vector<uint8_t> & bytecode, const std::vector<Operation*> & operations, const std::vector<Framebuffer*> & framebuffers, const std::vector<Texture*> & textures, const std::vector<Value> & values, Framebuffer * pDefaultFramebuffer)
+	: Instance (bytecode, operations, framebuffers, textures, values),
 	  m_pDefaultFramebuffer(pDefaultFramebuffer)
 {
 	assert(nullptr != pDefaultFramebuffer);

@@ -1,24 +1,28 @@
 #pragma once
 
+#include "Operation.h"
+
 namespace RenderGraph
 {
 
 class Framebuffer;
 class Parameters;
 
-class Pass
+class Pass : public Operation
 {
 public:
 
 	Pass();
-	virtual ~Pass();
+	virtual ~Pass() override;
 
-	virtual bool	init			(void);
-	virtual void	release			(void);
+	virtual bool	init			(void) override;
+	virtual void	release			(void) override;
 
-	virtual void	begin			(void);
-	virtual bool	render			(const Parameters & parameters) = 0;
-	virtual void	end				(void);
+	virtual bool	execute			(Parameters & parameters) override;
+
+	virtual bool	begin			(void);
+	virtual bool	render			(Parameters & parameters) = 0;
+	virtual bool	end				(void);
 
 	inline void setFramebuffer(unsigned int /*GLuint*/ framebuffer, unsigned int width, unsigned int height)
 	{
